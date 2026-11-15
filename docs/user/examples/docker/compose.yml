@@ -1,0 +1,22 @@
+# Minimal Fleet-only stack. Torrent clients stay outside this compose file —
+# point rtorrent.address / Settings → Clients at host or sibling containers.
+#
+#   mkdir -p config data
+#   cp config.yaml config/config.yaml   # edit clients
+#   docker compose up -d
+#
+# Image: ghcr.io/krate-apps/fleet (linux/amd64).
+
+services:
+  fleet:
+    image: ghcr.io/krate-apps/fleet:latest
+    container_name: fleet
+    ports:
+      - "8080:8080"
+    volumes:
+      - ./config/config.yaml:/config/config.yaml:ro
+      - ./data:/data
+    restart: unless-stopped
+    # Reach clients published on the Docker host (Linux may need host-gateway).
+    extra_hosts:
+      - "host.docker.internal:host-gateway"

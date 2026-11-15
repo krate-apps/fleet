@@ -10,7 +10,7 @@ Fleet is not a BitTorrent engine. It talks to your existing clients (rTorrent ov
 
 | | |
 | --- | --- |
-| Users | [Install](docs/user/install.md) · [Reverse proxy](docs/user/reverse-proxy.md) · [UI](docs/user/ui.md) · [Clients](docs/user/clients.md) · [Extensions](docs/user/extensions.md) · [Themes](docs/user/themes.md) · [Coming from…](docs/user/coming-from.md) · [FAQ](docs/user/faq.md) |
+| Users | [Install](docs/user/install.md) · [Docker](docs/user/docker.md) · [Reverse proxy](docs/user/reverse-proxy.md) · [UI](docs/user/ui.md) · [Clients](docs/user/clients.md) · [Extensions](docs/user/extensions.md) · [Themes](docs/user/themes.md) · [Coming from…](docs/user/coming-from.md) · [FAQ](docs/user/faq.md) |
 | Developers | [Architecture](docs/developer/architecture.md) · [Build](docs/developer/build.md) · [SDK](docs/developer/sdk.md) · [Create extension](docs/developer/create-extension.md) · [Create bucket](docs/developer/create-bucket.md) · [Hooks](docs/developer/hooks.md) · [Tools](docs/developer/tools.md) · [Publishing](docs/developer/publishing-extensions.md) |
 | Project | [Contributing](CONTRIBUTING.md) · [Security](SECURITY.md) |
 

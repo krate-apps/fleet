@@ -9,6 +9,7 @@ Fleet is a self-hosted **multi-client** BitTorrent **web UI** for **rTorrent**, 
 | Guide | Topics |
 | --- | --- |
 | [Install](user/install.md) | Requirements, install script, config, systemd, updates |
+| [Docker](user/docker.md) | GHCR image, Compose example, external clients |
 | [Reverse proxy](user/reverse-proxy.md) | Caddy, nginx, Apache (path mode + subdomain) + [examples/](user/examples/) |
 | [UI](user/ui.md) | Torrents, Files, status bar, keyboard shortcuts |
 | [Clients](user/clients.md) | Multi-client gateways (qBittorrent, Deluge, Transmission) |

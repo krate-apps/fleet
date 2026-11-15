@@ -10,6 +10,8 @@
 
 Fleet does **not** install or reconfigure your torrent clients.
 
+Prefer containers? See [Docker](docker.md) (`ghcr.io/krate-apps/fleet`) — Fleet-only image; clients stay external. This page covers the binary / systemd install.
+
 ## Quick install (from a built binary)
 
 ```bash

@@ -1,0 +1,41 @@
+# Example config for the Fleet container (see compose.yml in this directory).
+# Copy to ./config/config.yaml next to compose.yml and adjust clients.
+
+listen:
+  host: 0.0.0.0
+  port: 8080
+
+# External rTorrent (optional). Examples:
+#   address: "scgi://host.docker.internal:5000"
+#   address: "unix:///data/rtorrent/rpc.sock"  # if you mount the socket into /data
+rtorrent:
+  address: ""
+  # Mount download paths into the container and list them here for Files / erase_data.
+  download_roots: []
+
+tools:
+  mktorrent: /usr/local/bin/fleet-mktorrent
+  dumptorrent: /usr/local/bin/fleet-dumptorrent
+
+auth:
+  disable: false
+  # Set true when TLS terminates in front of the container.
+  secure_cookies: false
+
+security:
+  process_exec_allowlist: []
+  process_exec_dirs: []
+
+buckets:
+  official_path: ""
+  disable_official: false
+
+updates:
+  github_repo: krate-apps/fleet
+  asset_pattern: fleet-*-linux-amd64.tgz
+
+data_dir: /data
+log_level: info
+
+# Register qBittorrent / Deluge / Transmission under Settings → Clients in the UI
+# (URLs such as http://host.docker.internal:8081). Gateways are not defined in YAML.
