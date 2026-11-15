@@ -106,3 +106,20 @@ frontend:
 		t.Fatalf("%+v", cat)
 	}
 }
+
+func TestSyncOfficialThemePackagesRemovesLegacyTree(t *testing.T) {
+	bucketRoot := t.TempDir()
+	legacy := filepath.Join(bucketRoot, "packages", "themes", "ocean")
+	if err := os.MkdirAll(legacy, 0o700); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(legacy, "fleet.theme.yaml"), []byte("schema: 1\nid: org.fleet.theme.ocean\n"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	if err := SyncOfficialThemePackages(bucketRoot); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := os.Stat(filepath.Join(bucketRoot, "packages", "themes")); !os.IsNotExist(err) {
+		t.Fatalf("expected packages/themes removed, err=%v", err)
+	}
+}

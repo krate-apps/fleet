@@ -99,43 +99,16 @@ func SyncOfficialLocalPackages(bucketPath string, extensionRoots ...string) erro
 	return SyncOfficialThemePackages(bucketPath)
 }
 
-// SyncOfficialThemePackages copies installable theme packs into
-// bucket/packages/themes/<id> when a workspace theme checkout is present.
+// SyncOfficialThemePackages removes any legacy bucket/packages/themes tree.
+// Themes are published from fleet-theme-* repos (architecture url+hash), not vendored in the catalogue.
 func SyncOfficialThemePackages(bucketPath string) error {
-	ids := []string{"slate", "ocean", "sand"}
 	absBucket, err := filepath.Abs(bucketPath)
 	if err != nil {
 		return err
 	}
-	parent := filepath.Dir(absBucket) // …/buckets or …/packaging
-	for _, id := range ids {
-		dst := filepath.Join(absBucket, "packages", "themes", id)
-		if themePackageDirHasManifest(dst) {
-			continue
-		}
-		// Workspace layouts: fleet/buckets/… or install-staged packaging/….
-		candidates := []string{
-			filepath.Join(filepath.Dir(parent), "themes", "fleet-theme-"+id),
-			filepath.Join(filepath.Dir(filepath.Dir(parent)), "themes", "fleet-theme-"+id),
-			filepath.Join(parent, "fleet-theme-"+id),
-			filepath.Join(filepath.Dir(parent), "fleet-theme-"+id),
-		}
-		var src string
-		for _, cand := range candidates {
-			if cand == dst {
-				continue
-			}
-			if themePackageDirHasManifest(cand) {
-				src = cand
-				break
-			}
-		}
-		if src == "" {
-			continue
-		}
-		if err := copyDir(src, dst); err != nil {
-			return fmt.Errorf("sync theme %s: %w", id, err)
-		}
+	themesDir := filepath.Join(absBucket, "packages", "themes")
+	if err := os.RemoveAll(themesDir); err != nil && !os.IsNotExist(err) {
+		return fmt.Errorf("remove legacy packages/themes: %w", err)
 	}
 	return nil
 }
