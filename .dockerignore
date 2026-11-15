@@ -1,0 +1,22 @@
+# Build context hygiene for the Fleet host image.
+.git
+.github
+.ai
+bin
+dist
+coverage
+**/*_test.go
+web/node_modules
+web/dist
+cmd/fleet/web/**
+!cmd/fleet/web/.gitkeep
+*.db
+*.db-*
+.env
+.env.*
+**/.DS_Store
+**/*.log
+tests
+docs/backup
+packaging
+extensions/*/bin
