@@ -1,0 +1,104 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://fleet.local/docs/developer/schemas/manifest.schema.json",
+  "title": "Fleet extension manifest",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema", "id", "name", "version", "api"],
+  "properties": {
+    "schema": { "const": 1 },
+    "id": {
+      "type": "string",
+      "pattern": "^[a-z][a-z0-9_-]*(\\.[a-z][a-z0-9_-]*)+$",
+      "description": "Reverse-DNS extension identifier"
+    },
+    "name": { "type": "string", "minLength": 1, "maxLength": 120 },
+    "description": {
+      "type": "string",
+      "maxLength": 280,
+      "description": "Short human-readable summary shown in the Extensions UI"
+    },
+    "version": {
+      "type": "string",
+      "pattern": "^[0-9]+\\.[0-9]+\\.[0-9]+([-+][A-Za-z0-9.-]+)?$"
+    },
+    "api": {
+      "type": "string",
+      "minLength": 1,
+      "description": "Semver range for Fleet SDK API compatibility"
+    },
+    "engines": {
+      "type": "array",
+      "items": { "type": "string", "enum": ["rtorrent"] },
+      "uniqueItems": true
+    },
+    "capabilities": {
+      "type": "array",
+      "items": {
+        "type": "string",
+        "enum": [
+          "torrents.read",
+          "torrents.add",
+          "torrents.actions",
+          "files.read",
+          "files.write",
+          "files.unpack",
+          "files.mediainfo",
+          "files.screenshots",
+          "files.spectrogram",
+          "trackers.read",
+          "trackers.write",
+          "peers.read",
+          "peers.actions",
+          "engine.capabilities",
+          "process.exec",
+          "system.read",
+          "events.subscribe",
+          "jobs.schedule",
+          "jobs.read",
+          "storage.read",
+          "storage.write",
+          "settings.read",
+          "settings.write",
+          "notifications.write",
+          "http.fetch",
+          "urlrewrite.read",
+          "urlrewrite.write",
+          "cookies.read",
+          "cookies.write",
+          "loginmgr.read",
+          "loginmgr.write",
+          "gateways.read",
+          "gateways.write"
+        ]
+      },
+      "uniqueItems": true
+    },
+    "frontend": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["type", "entry"],
+      "properties": {
+        "type": { "const": "declarative" },
+        "entry": {
+          "type": "string",
+          "pattern": "^[^\\\\0]+\\.json$"
+        }
+      }
+    },
+    "backend": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["type", "executable", "protocol"],
+      "properties": {
+        "type": { "const": "process" },
+        "executable": {
+          "type": "string",
+          "minLength": 1,
+          "description": "Relative path under the extension package; no shell"
+        },
+        "protocol": { "const": "jsonrpc-2" }
+      }
+    }
+  }
+}

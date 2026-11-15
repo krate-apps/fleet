@@ -1,0 +1,23 @@
+# Fleet behind Caddy on a path prefix (example: /fleet).
+# Build the UI with: FLEET_UI_BASE=/fleet/ make embed build
+# Fleet listens on 127.0.0.1:8080 (adjust UPSTREAM).
+
+@fleet_slash {
+	path /fleet
+}
+redir @fleet_slash /fleet/ 302
+
+@fleet {
+	path /fleet /fleet/ /fleet/*
+}
+route @fleet {
+	uri strip_prefix /fleet
+	reverse_proxy 127.0.0.1:8080 {
+		flush_interval -1
+		header_up Host {host}
+		header_up X-Forwarded-Prefix /fleet
+		header_up X-Forwarded-PathBase /fleet
+		header_up X-Forwarded-Proto {scheme}
+		header_up Accept-Encoding identity
+	}
+}

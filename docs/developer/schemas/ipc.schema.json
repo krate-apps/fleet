@@ -1,0 +1,82 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://fleet.local/docs/developer/schemas/ipc.schema.json",
+  "title": "Fleet extension worker IPC (JSON-RPC 2.0 framing)",
+  "description": "Workers speak JSON-RPC 2.0 on stdin/stdout (one JSON object per line). Max message size and timeouts are enforced by Fleet.",
+  "oneOf": [
+    { "$ref": "#/$defs/request" },
+    { "$ref": "#/$defs/response" },
+    { "$ref": "#/$defs/notification" }
+  ],
+  "$defs": {
+    "request": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["jsonrpc", "method", "id"],
+      "properties": {
+        "jsonrpc": { "const": "2.0" },
+        "method": {
+          "type": "string",
+          "enum": [
+            "fleet.handshake",
+            "fleet.ping",
+            "fleet.shutdown",
+            "ext.activate",
+            "ext.deactivate",
+            "ext.health",
+            "ext.upgrade"
+          ]
+        },
+        "params": { "type": "object" },
+        "id": { "type": ["string", "number"] }
+      }
+    },
+    "response": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["jsonrpc", "id"],
+      "properties": {
+        "jsonrpc": { "const": "2.0" },
+        "result": true,
+        "error": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["code", "message"],
+          "properties": {
+            "code": { "type": "integer" },
+            "message": { "type": "string" },
+            "data": true
+          }
+        },
+        "id": { "type": ["string", "number", "null"] }
+      }
+    },
+    "notification": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["jsonrpc", "method"],
+      "properties": {
+        "jsonrpc": { "const": "2.0" },
+        "method": {
+          "type": "string",
+          "enum": ["fleet.event", "ext.log", "ext.job.progress"]
+        },
+        "params": { "type": "object" }
+      }
+    },
+    "handshakeParams": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["protocolVersion", "extensionId", "extensionVersion"],
+      "properties": {
+        "protocolVersion": { "const": 1 },
+        "extensionId": { "type": "string" },
+        "extensionVersion": { "type": "string" },
+        "capabilities": {
+          "type": "array",
+          "items": { "type": "string" }
+        }
+      }
+    }
+  }
+}

@@ -25,8 +25,7 @@ cmd/fleet/web/**
 .vscode/
 *.log
 
-# Agent memory (not part of the product repository)
-docs/
+# Agent / lab scratch (workspace docs/MEMORY lives outside this repo)
 ai/
 
 # Extension workspace: committed symlinks to ../fleet-ext-*; ignore build artefacts only

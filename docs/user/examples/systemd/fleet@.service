@@ -1,0 +1,25 @@
+[Unit]
+Description=Fleet BitTorrent web UI (%i)
+After=network.target
+# Optional: wait for the user's rTorrent if it is also systemd-managed.
+# After=rtorrent@%i.service
+
+[Service]
+Type=simple
+User=%i
+Group=%i
+ExecStart=/opt/%i/fleet/current/fleet -config /home/%i/.config/fleet/config.yaml
+Restart=on-failure
+RestartSec=3
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectSystem=strict
+ProtectHome=read-only
+# SQLite / cache / config writes. Append each rtorrent.download_roots path used for
+# erase_data / mktorrent (ProtectHome=read-only blocks other $HOME writes), e.g.:
+#   ReadWritePaths=... /home/%i/medias
+ReadWritePaths=/home/%i/.local/share/fleet /home/%i/.cache/fleet /home/%i/.config/fleet
+WorkingDirectory=/opt/%i/fleet/current
+
+[Install]
+WantedBy=multi-user.target

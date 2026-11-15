@@ -1,0 +1,124 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://fleet.local/docs/developer/schemas/ui-contribution.schema.json",
+  "title": "Fleet declarative UI contributions",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema", "extensionId"],
+  "properties": {
+    "schema": { "const": 1 },
+    "extensionId": { "type": "string", "minLength": 1 },
+    "columns": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["id", "label", "field"],
+        "properties": {
+          "id": { "type": "string", "minLength": 1 },
+          "label": { "type": "string", "minLength": 1 },
+          "field": { "type": "string", "minLength": 1 },
+          "width": { "type": "integer", "minimum": 40, "maximum": 800 }
+        }
+      }
+    },
+    "actions": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["id", "label", "target"],
+        "properties": {
+          "id": { "type": "string", "minLength": 1 },
+          "label": { "type": "string", "minLength": 1 },
+          "target": { "type": "string", "enum": ["torrent", "selection", "global"] },
+          "confirm": { "type": "boolean" },
+          "primary": { "type": "boolean" },
+          "danger": { "type": "boolean" }
+        }
+      }
+    },
+    "pages": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["id", "title", "route"],
+        "properties": {
+          "id": { "type": "string", "minLength": 1 },
+          "title": { "type": "string", "minLength": 1 },
+          "route": {
+            "type": "string",
+            "pattern": "^/ext/[a-z0-9][a-z0-9._-]*/[a-z0-9][a-z0-9._/-]*$"
+          }
+        }
+      }
+    },
+    "panels": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["id", "title", "placement"],
+        "properties": {
+          "id": { "type": "string", "minLength": 1 },
+          "title": { "type": "string", "minLength": 1 },
+          "placement": {
+            "type": "string",
+            "enum": ["torrent-details", "sidebar", "settings"]
+          }
+        }
+      }
+    },
+    "forms": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["id", "title", "fields"],
+        "properties": {
+          "id": { "type": "string", "minLength": 1 },
+          "title": { "type": "string", "minLength": 1 },
+          "description": { "type": "string", "minLength": 1 },
+          "submitLabel": { "type": "string", "minLength": 1 },
+          "loadMethod": { "type": "string", "minLength": 1 },
+          "submitMethod": { "type": "string", "minLength": 1 },
+          "fields": {
+            "type": "array",
+            "minItems": 1,
+            "items": {
+              "type": "object",
+              "additionalProperties": false,
+              "required": ["name", "label", "kind"],
+              "properties": {
+                "name": { "type": "string", "minLength": 1 },
+                "label": { "type": "string", "minLength": 1 },
+                "kind": {
+                  "type": "string",
+                  "enum": ["text", "number", "boolean", "select", "url", "textarea"]
+                },
+                "required": { "type": "boolean" },
+                "help": { "type": "string", "minLength": 1 },
+                "placeholder": { "type": "string", "minLength": 1 },
+                "advanced": { "type": "boolean" },
+                "rows": { "type": "integer", "minimum": 2, "maximum": 40 },
+                "options": {
+                  "type": "array",
+                  "items": {
+                    "type": "object",
+                    "additionalProperties": false,
+                    "required": ["value", "label"],
+                    "properties": {
+                      "value": { "type": "string" },
+                      "label": { "type": "string", "minLength": 1 }
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+  }
+}

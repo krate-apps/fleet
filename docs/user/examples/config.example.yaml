@@ -1,0 +1,69 @@
+# Example Fleet configuration for a single Unix user instance.
+# Copy to ~/.config/fleet/config.yaml and adjust.
+
+listen:
+  host: 127.0.0.1
+  port: 8080
+
+# Unix socket preferred (Krate example: unix:///run/krate/user/<user>.rtorrent.sock).
+#   address: "unix:///run/krate/user/alice.rtorrent.sock"
+#   address: "scgi://127.0.0.1:5000"
+rtorrent:
+  address: ""
+  # Required for erase_data, Files UI (/api/v1/fs/*), public shares, and path-guarded tools.
+  download_roots: []
+
+# Optional JSON-capable helpers (CORE-014/015). Leave empty until binaries are installed.
+tools:
+  mktorrent: ""
+  dumptorrent: ""
+  # unrar: ""  # optional; defaults to "unrar" on PATH for .rar unpack
+  # mediainfo: ""  # optional; defaults to "mediainfo" on PATH
+  # ffmpeg: ""  # optional; defaults to "ffmpeg" on PATH for screenshots
+  # sox: ""  # optional; defaults to "sox" on PATH for spectrogram
+  # rclone: ""  # optional; defaults to "rclone" on PATH for org.fleet.rclone
+
+# Optional MaxMind Country MMDB for peer country codes (ruTorrent geoip parity).
+# Download GeoLite2-Country.mmdb from MaxMind (license required) and point here.
+geoip:
+  database: ""
+
+# Directory of unpacked extension packages (each subdir has fleet.ext.yaml).
+# Default when empty: <data_dir>/extensions-src plus the bundled ./extensions tree when present.
+# Do not point this at <data_dir>/extensions — runtime storage lives under
+# <data_dir>/extension-data/<id> and must stay out of discovery roots.
+extensions_dir: ""
+
+# Native authentication (SEC-001…). First admin is created via /setup — no default password.
+auth:
+  # Never enable on a non-loopback listen.host (Fleet refuses to start).
+  disable: false
+  # Prefer true behind HTTPS. Fleet also sets Secure when X-Forwarded-Proto is https.
+  secure_cookies: false
+
+# Extension host hardening. fleet.process.exec is denied until you allow binaries.
+security:
+  # Absolute paths only (after symlink resolution), e.g. /usr/bin/notify-send
+  process_exec_allowlist: []
+  # Or allow any non-shell binary under these directories (dedicated hooks tree).
+  process_exec_dirs: []
+  # Shells and common interpreters remain denied even when listed.
+
+# Optional official bucket (BKT-002). Preconfigured when the path exists; disable anytime.
+buckets:
+  # Workspace (recommended for local/dev):
+  # official_path: ../buckets/fleet-official-bucket
+  # After install.sh, a local catalogue copy may live under <prefix>/packaging/official-bucket.
+  official_path: ""
+  disable_official: false
+
+# Optional install prefix for update helper hints (UPD-003), e.g. /opt/alice/fleet
+install_prefix: ""
+
+# Core update discovery (Settings → Updates). Channel is chosen in the UI (stable|pre).
+updates:
+  github_repo: krate-apps/fleet
+  asset_pattern: fleet-*-linux-amd64.tgz
+
+data_dir: "" # default: ~/.local/share/fleet
+log_level: info

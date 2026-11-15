@@ -1,0 +1,12 @@
+# Fleet on a dedicated host/subdomain (root path).
+# Build the UI with default FLEET_UI_BASE=/ (no path prefix).
+# TLS via Caddy automatic HTTPS when the site block uses a public hostname.
+
+fleet.example.com {
+	reverse_proxy 127.0.0.1:8080 {
+		flush_interval -1
+		header_up Host {host}
+		header_up X-Forwarded-Proto {scheme}
+		header_up Accept-Encoding identity
+	}
+}
