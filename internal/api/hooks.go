@@ -42,16 +42,26 @@ func (s *Server) handleExtensionHook(w http.ResponseWriter, r *http.Request) {
 		writeJSON(w, http.StatusUnauthorized, map[string]string{"error": "unauthorized"})
 		return
 	}
-	candidates := []string{pathToken}
-	if key := strings.TrimSpace(r.Header.Get("X-Api-Key")); key != "" {
-		candidates = append(candidates, key)
-	}
+	headerKey := strings.TrimSpace(r.Header.Get("X-Api-Key"))
+	var bearer string
 	if authz := strings.TrimSpace(r.Header.Get("Authorization")); strings.HasPrefix(strings.ToLower(authz), "bearer ") {
-		candidates = append(candidates, strings.TrimSpace(authz[7:]))
+		bearer = strings.TrimSpace(authz[7:])
+	}
+	candidates := []string{pathToken}
+	if headerKey != "" {
+		candidates = append(candidates, headerKey)
+	}
+	if bearer != "" {
+		candidates = append(candidates, bearer)
 	}
 	if !tokenMatches(expected, candidates...) {
 		writeJSON(w, http.StatusUnauthorized, map[string]string{"error": "unauthorized"})
 		return
+	}
+	headerAuthOK := (headerKey != "" && tokenMatches(expected, headerKey)) || (bearer != "" && tokenMatches(expected, bearer))
+	if !headerAuthOK {
+		s.logger.Warn("extension webhook authenticated via path token; prefer X-Api-Key or Authorization: Bearer",
+			"extension_id", id)
 	}
 
 	body, err := io.ReadAll(io.LimitReader(r.Body, maxHookBodyBytes+1))
