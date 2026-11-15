@@ -74,6 +74,19 @@ function stateLabel(state: string): string {
   return translated === key ? state : translated;
 }
 
+/** Only allow http(s) repository links from catalogue metadata (no javascript:). */
+function safeHttpUrl(raw: string | undefined): string {
+  const v = (raw || "").trim();
+  if (!v) return "";
+  try {
+    const u = new URL(v);
+    if (u.protocol !== "http:" && u.protocol !== "https:") return "";
+    return u.toString();
+  } catch {
+    return "";
+  }
+}
+
 const installedIds = computed(() => new Set(extensions.value.map((e) => e.id)));
 
 const catalogById = computed(() => {
@@ -394,9 +407,9 @@ defineExpose({
                   class="fleet-ext-badge"
                 >{{ t("extensions.official") }}</span>
                 <a
-                  v-if="row.repository"
+                  v-if="safeHttpUrl(row.repository)"
                   class="fleet-ext-github"
-                  :href="row.repository"
+                  :href="safeHttpUrl(row.repository)"
                   target="_blank"
                   rel="noopener noreferrer"
                   :aria-label="t('extensions.repository')"
@@ -487,9 +500,9 @@ defineExpose({
                 <strong>{{ c.name }}</strong>
                 <span class="fleet-ext-ver">{{ c.version }}</span>
                 <a
-                  v-if="c.repository"
+                  v-if="safeHttpUrl(c.repository)"
                   class="fleet-ext-github"
-                  :href="c.repository"
+                  :href="safeHttpUrl(c.repository)"
                   target="_blank"
                   rel="noopener noreferrer"
                   :aria-label="t('extensions.repository')"
