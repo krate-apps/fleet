@@ -26,6 +26,7 @@ import (
 	"github.com/krate-apps/fleet/internal/intake"
 	"github.com/krate-apps/fleet/internal/jobs"
 	"github.com/krate-apps/fleet/internal/logs"
+	"github.com/krate-apps/fleet/internal/netutil"
 	"github.com/krate-apps/fleet/internal/rtorrent"
 	"github.com/krate-apps/fleet/internal/security"
 	"github.com/krate-apps/fleet/internal/share"
@@ -86,6 +87,15 @@ func run() int {
 			return 1
 		}
 	}
+	if cfg.Auth.Disable {
+		host := strings.TrimSpace(cfg.Listen.Host)
+		if host != "127.0.0.1" && host != "localhost" && host != "::1" {
+			logger.Error("auth.disable is set but listen.host is not loopback; refusing to start")
+			return 1
+		}
+		logger.Warn("auth.disable=true; API is unauthenticated (loopback only)")
+	}
+	extensions.SetProcessExecPolicy(cfg.Security.ProcessExecAllowlist, cfg.Security.ProcessExecDirs)
 
 	store, err := storage.Open(cfg.DataDir)
 	if err != nil {
@@ -179,6 +189,7 @@ func run() int {
 		URLRewrite: &extensions.URLRewriteStore{DataDir: cfg.DataDir},
 		Cookies:    &extensions.CookieStore{DataDir: cfg.DataDir},
 		Tools:      toolsRunner,
+		HTTP:       netutil.SafeHTTPClient(30 * time.Second),
 		DataDir:    cfg.DataDir,
 	}
 	extBridge.LoginMgr = &extensions.LoginStore{
