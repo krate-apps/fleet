@@ -1,0 +1,40 @@
+# Dependencies
+node_modules/
+.pnpm-store/
+
+# Builds
+dist/
+web/dist/
+bin/
+fleet-lab.tgz
+coverage/
+*.tsbuildinfo
+.vite/
+cmd/fleet/web/**
+!cmd/fleet/web/.gitkeep
+
+# Local / secrets
+.env
+.env.local
+*.db
+*.db-*
+
+# OS / IDE
+.DS_Store
+.idea/
+.vscode/
+*.log
+
+# Agent memory (not part of the product repository)
+docs/
+ai/
+
+# Extension workspace: committed symlinks to ../fleet-ext-*; ignore build artefacts only
+extensions/*/bin/
+
+# Runtime sync of official reference packages (see SyncOfficialLocalPackages)
+packaging/official-bucket/packages/rss/
+packaging/official-bucket/packages/autotools/
+packaging/official-bucket/packages/scheduler/
+packaging/official-bucket/packages/ratio/
+packaging/official-bucket/packages/unpack/

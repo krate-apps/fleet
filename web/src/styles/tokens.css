@@ -1,0 +1,104 @@
+/*
+ * Fleet design tokens — inspired by club-QuickBox layout language.
+ * Built-ins: dark + light only. Pack themes (slate/ocean/sand, …) ship as
+ * fleet.theme.yaml packages and inject :root[data-fleet-theme="…"] via themes-src.
+ * ruTorrent PHP theme packs are not imported.
+ */
+
+:root,
+:root[data-fleet-theme="dark"] {
+  --fleet-font: -apple-system, BlinkMacSystemFont, "Segoe UI", Helvetica, Arial, sans-serif;
+  --fleet-font-mono: ui-monospace, "SFMono-Regular", Menlo, Consolas, monospace;
+  --fleet-radius: 8px;
+  --fleet-radius-lg: 12px;
+  --fleet-topbar-h: 56px;
+  --fleet-statusbar-h: 32px;
+  --fleet-sidebar-w: 220px;
+
+  --fleet-background: #060818;
+  --fleet-foreground: #e0e6ed;
+  --fleet-surface: #0e1726;
+  --fleet-surface-2: #181e2e;
+  --fleet-surface-3: #1b2436;
+  --fleet-fg-muted: #94a3b8;
+  --fleet-border: #1b2e4b;
+  --fleet-border-soft: #142138;
+  --fleet-input: #0a1120;
+  --fleet-primary: #26ae7f;
+  --fleet-primary-fg: #060818;
+  --fleet-primary-text: #26ae7f;
+  --fleet-accent: #2aebcb;
+  --fleet-accent-text: #2aebcb;
+  --fleet-destructive: #e7515a;
+  --fleet-destructive-text: #f87171;
+  --fleet-ring: #2aebcb;
+  --fleet-focus: rgba(42, 235, 203, 0.35);
+  --fleet-header-gradient: linear-gradient(to right, #2aebcb, #26ae7f);
+  --fleet-shadow: 0 18px 40px rgba(2, 6, 23, 0.45);
+  --fleet-pill-bg: rgba(0, 0, 0, 0.28);
+  --fleet-speed-down: #38bdf8;
+  --fleet-speed-up: #26ae7f;
+  --fleet-prg-start: #26ae7f;
+  --fleet-prg-end: #2aebcb;
+  --fleet-state-downloading: #38bdf8;
+  --fleet-state-seeding: #26ae7f;
+  --fleet-state-paused: #fbbf24;
+  --fleet-state-stopped: #94a3b8;
+  --fleet-state-error: #e7515a;
+  --fleet-icon: #94a3b8;
+  --fleet-icon-hover: #e0e6ed;
+  --fleet-status-ok: #4ade80;
+  --fleet-status-warn: #fbbf24;
+  --fleet-status-bad: #f87171;
+  --fleet-row-h: 52px;
+  --fleet-row-pad-y: 0.55rem;
+}
+
+:root[data-fleet-theme="light"] {
+  --fleet-background: #f1f2f3;
+  --fleet-foreground: #515365;
+  --fleet-surface: #ffffff;
+  --fleet-surface-2: #ebedf2;
+  --fleet-surface-3: #e2e5ea;
+  --fleet-fg-muted: #646982;
+  --fleet-border: #d3d3d3;
+  --fleet-border-soft: #e3e3e3;
+  --fleet-input: #ffffff;
+  --fleet-primary: #4361ee;
+  --fleet-primary-fg: #ffffff;
+  --fleet-primary-text: #1d4ed8;
+  --fleet-accent: #0d6efd;
+  --fleet-accent-text: #0a58ca;
+  --fleet-destructive: #e7515a;
+  --fleet-destructive-text: #c0303a;
+  --fleet-ring: #4361ee;
+  --fleet-focus: rgba(67, 97, 238, 0.25);
+  --fleet-header-gradient: linear-gradient(to right, #818cf8, #6366f1);
+  --fleet-shadow: 0 18px 40px rgba(15, 23, 42, 0.08);
+  --fleet-pill-bg: rgba(0, 0, 0, 0.06);
+  --fleet-speed-down: #0284c7;
+  --fleet-speed-up: #1d4ed8;
+  --fleet-prg-start: #4361ee;
+  --fleet-prg-end: #6366f1;
+  --fleet-state-downloading: #0284c7;
+  --fleet-state-seeding: #15803d;
+  --fleet-state-paused: #b45309;
+  --fleet-state-stopped: #646982;
+  --fleet-state-error: #c0303a;
+  --fleet-icon: #646982;
+  --fleet-icon-hover: #1d4ed8;
+  /* PD-UX-22: darker status hues for light surfaces */
+  --fleet-status-ok: #15803d;
+  --fleet-status-warn: #a16207;
+  --fleet-status-bad: #b91c1c;
+}
+
+:root[data-fleet-density="compact"] {
+  --fleet-row-h: 40px;
+  --fleet-row-pad-y: 0.28rem;
+}
+
+:root[data-fleet-density="comfort"] {
+  --fleet-row-h: 52px;
+  --fleet-row-pad-y: 0.55rem;
+}
