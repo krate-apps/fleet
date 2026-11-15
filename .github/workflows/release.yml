@@ -5,6 +5,7 @@ on:
   workflow_dispatch:
 permissions:
   contents: write
+  packages: write
 concurrency:
   group: release-main
   cancel-in-progress: false
@@ -45,6 +46,27 @@ jobs:
           files: |
             dist/*.tgz
             dist/SHA256SUMS
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+      - name: Log in to GHCR
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+      - name: Build and push image
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          file: ./Dockerfile
+          push: true
+          platforms: linux/amd64
+          build-args: |
+            VERSION=${{ steps.ver.outputs.version }}
+            COMMIT=${{ github.sha }}
+          tags: |
+            ghcr.io/${{ github.repository }}:${{ steps.ver.outputs.tag }}
+            ghcr.io/${{ github.repository }}:latest
       - name: Notify Official bucket
         env:
           GH_TOKEN: ${{ secrets.FLEET_BUCKET_TOKEN }}
