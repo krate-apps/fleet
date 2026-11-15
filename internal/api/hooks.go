@@ -13,14 +13,18 @@ import (
 const maxHookBodyBytes = 1 << 20 // 1 MiB
 
 func (s *Server) handleExtensionHook(w http.ResponseWriter, r *http.Request) {
-	if s.ext == nil {
-		writeJSON(w, http.StatusServiceUnavailable, map[string]string{"error": "extensions unavailable"})
+	id := strings.TrimSpace(r.PathValue("id"))
+	if id == "" {
+		writeJSON(w, http.StatusBadRequest, map[string]string{"error": "id required"})
 		return
 	}
-	id := strings.TrimSpace(r.PathValue("id"))
-	pathToken := strings.TrimSpace(r.PathValue("token"))
-	if id == "" || pathToken == "" {
-		writeJSON(w, http.StatusBadRequest, map[string]string{"error": "id and token required"})
+	provided := hookHeaderToken(r)
+	if provided == "" {
+		writeJSON(w, http.StatusUnauthorized, map[string]string{"error": "unauthorized"})
+		return
+	}
+	if s.ext == nil {
+		writeJSON(w, http.StatusServiceUnavailable, map[string]string{"error": "extensions unavailable"})
 		return
 	}
 	rec, err := s.ext.Get(id)
@@ -38,30 +42,9 @@ func (s *Server) handleExtensionHook(w http.ResponseWriter, r *http.Request) {
 		writeJSON(w, http.StatusInternalServerError, map[string]string{"error": "settings unavailable"})
 		return
 	}
-	if strings.TrimSpace(expected) == "" {
+	if strings.TrimSpace(expected) == "" || !tokenMatches(expected, provided) {
 		writeJSON(w, http.StatusUnauthorized, map[string]string{"error": "unauthorized"})
 		return
-	}
-	headerKey := strings.TrimSpace(r.Header.Get("X-Api-Key"))
-	var bearer string
-	if authz := strings.TrimSpace(r.Header.Get("Authorization")); strings.HasPrefix(strings.ToLower(authz), "bearer ") {
-		bearer = strings.TrimSpace(authz[7:])
-	}
-	candidates := []string{pathToken}
-	if headerKey != "" {
-		candidates = append(candidates, headerKey)
-	}
-	if bearer != "" {
-		candidates = append(candidates, bearer)
-	}
-	if !tokenMatches(expected, candidates...) {
-		writeJSON(w, http.StatusUnauthorized, map[string]string{"error": "unauthorized"})
-		return
-	}
-	headerAuthOK := (headerKey != "" && tokenMatches(expected, headerKey)) || (bearer != "" && tokenMatches(expected, bearer))
-	if !headerAuthOK {
-		s.logger.Warn("extension webhook authenticated via path token; prefer X-Api-Key or Authorization: Bearer",
-			"extension_id", id)
 	}
 
 	body, err := io.ReadAll(io.LimitReader(r.Body, maxHookBodyBytes+1))
@@ -159,6 +142,18 @@ func loadWebhookToken(store *extensions.StorageBridge, extensionID string) (stri
 		return "", nil
 	}
 	return strings.TrimSpace(st.WebhookToken), nil
+}
+
+// hookHeaderToken returns the webhook secret from X-Api-Key or Authorization Bearer.
+func hookHeaderToken(r *http.Request) string {
+	if key := strings.TrimSpace(r.Header.Get("X-Api-Key")); key != "" {
+		return key
+	}
+	authz := strings.TrimSpace(r.Header.Get("Authorization"))
+	if len(authz) >= 7 && strings.EqualFold(authz[:7], "bearer ") {
+		return strings.TrimSpace(authz[7:])
+	}
+	return ""
 }
 
 func tokenMatches(expected string, candidates ...string) bool {

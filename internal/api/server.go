@@ -168,7 +168,7 @@ func (s *Server) routes() {
 	s.mux.HandleFunc("PUT /api/v1/extensions/{id}/storage/{key}", s.handleExtensionStoragePut)
 	s.mux.HandleFunc("POST /api/v1/extensions/install", s.handleInstallExtension)
 	s.mux.HandleFunc("DELETE /api/v1/extensions/{id}/install", s.handleUninstallExtension)
-	s.mux.HandleFunc("POST /api/v1/hooks/{id}/{token}", s.handleExtensionHook)
+	s.mux.HandleFunc("POST /api/v1/hooks/{id}", s.handleExtensionHook)
 	s.mux.HandleFunc("GET /api/v1/buckets", s.handleListBuckets)
 	s.mux.HandleFunc("POST /api/v1/buckets", s.handleAddBucket)
 	s.mux.HandleFunc("DELETE /api/v1/buckets/{id}", s.handleRemoveBucket)
