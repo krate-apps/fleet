@@ -16,11 +16,20 @@ type Config struct {
 	GeoIP         GeoIPConfig    `yaml:"geoip"`
 	Buckets       BucketsConfig  `yaml:"buckets"`
 	Auth          AuthConfig     `yaml:"auth"`
+	Security      SecurityConfig `yaml:"security"`
 	InstallPrefix string         `yaml:"install_prefix"` // optional /opt/<user>/fleet for update helper hints
 	Updates       UpdatesConfig  `yaml:"updates"`
 	ExtensionsDir string         `yaml:"extensions_dir"`
 	DataDir       string         `yaml:"data_dir"`
 	LogLevel      string         `yaml:"log_level"`
+}
+
+// SecurityConfig hardens extension host capabilities.
+type SecurityConfig struct {
+	// ProcessExecAllowlist is the absolute binaries allowed for fleet.process.exec (fail closed when empty).
+	ProcessExecAllowlist []string `yaml:"process_exec_allowlist"`
+	// ProcessExecDirs allows any non-forbidden binary under these absolute directories.
+	ProcessExecDirs []string `yaml:"process_exec_dirs"`
 }
 
 // UpdatesConfig controls GitHub release discovery for Settings → Updates.
