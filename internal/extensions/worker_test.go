@@ -63,7 +63,7 @@ backend:
 func TestWorkerHandshakeAndHealth(t *testing.T) {
 	bin := buildEchoWorker(t)
 	root := t.TempDir()
-	writeWorkerPackage(t, root, "org.fleet.demo", "demo", bin)
+	writeWorkerPackage(t, root, "org.fleet.postaddcheck", "demo", bin)
 
 	store, err := storage.Open(t.TempDir())
 	if err != nil {
@@ -77,7 +77,7 @@ func TestWorkerHandshakeAndHealth(t *testing.T) {
 	if err := h.Refresh(); err != nil {
 		t.Fatalf("Refresh: %v", err)
 	}
-	rec, err := h.Activate("org.fleet.demo")
+	rec, err := h.Activate("org.fleet.postaddcheck")
 	if err != nil {
 		t.Fatalf("Activate: %v", err)
 	}
@@ -86,7 +86,7 @@ func TestWorkerHandshakeAndHealth(t *testing.T) {
 	}
 
 	h.mu.RLock()
-	sess := h.workers["org.fleet.demo"]
+	sess := h.workers["org.fleet.postaddcheck"]
 	h.mu.RUnlock()
 	if sess == nil || !sess.Alive() {
 		t.Fatal("expected live worker")
@@ -94,7 +94,7 @@ func TestWorkerHandshakeAndHealth(t *testing.T) {
 	if _, err := sess.Call(ctx, backend.MethodHealth, map[string]any{}); err != nil {
 		t.Fatalf("health: %v", err)
 	}
-	if _, err := h.Deactivate("org.fleet.demo"); err != nil {
+	if _, err := h.Deactivate("org.fleet.postaddcheck"); err != nil {
 		t.Fatalf("Deactivate: %v", err)
 	}
 }
@@ -102,7 +102,7 @@ func TestWorkerHandshakeAndHealth(t *testing.T) {
 func TestWorkerCrashIsolatedFromHost(t *testing.T) {
 	bin := buildEchoWorker(t)
 	root := t.TempDir()
-	writeWorkerPackage(t, root, "org.fleet.crash", "crashy", bin)
+	writeWorkerPackage(t, root, "org.example.crash", "crashy", bin)
 
 	// Crash during handshake must fail StartWorker without panicking.
 	m, err := loadPackage(filepath.Join(root, "crashy"))
@@ -124,11 +124,14 @@ func TestWorkerCrashIsolatedFromHost(t *testing.T) {
 	if err := h.Refresh(); err != nil {
 		t.Fatal(err)
 	}
-	if _, err := h.Activate("org.fleet.crash"); err != nil {
+	if err := h.GrantConsent("org.example.crash"); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := h.Activate("org.example.crash"); err != nil {
 		t.Fatalf("Activate: %v", err)
 	}
 	h.mu.RLock()
-	sess := h.workers["org.fleet.crash"]
+	sess := h.workers["org.example.crash"]
 	h.mu.RUnlock()
 	if sess == nil {
 		t.Fatal("missing worker session")
@@ -137,7 +140,7 @@ func TestWorkerCrashIsolatedFromHost(t *testing.T) {
 	_, _ = sess.Call(context.Background(), "ext.debug.exit", map[string]any{})
 	deadline := time.Now().Add(3 * time.Second)
 	for time.Now().Before(deadline) {
-		got, err := h.Get("org.fleet.crash")
+		got, err := h.Get("org.example.crash")
 		if err == nil && got.State == StateError {
 			return
 		}

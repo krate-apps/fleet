@@ -8,6 +8,18 @@ import (
 	"github.com/krate-apps/fleet/internal/storage"
 )
 
+func TestIsOfficialExtensionExactAllowlist(t *testing.T) {
+	if !IsOfficialExtension("org.fleet.eventhooks") {
+		t.Fatal("known official id should pass")
+	}
+	if IsOfficialExtension("org.fleet.evil") {
+		t.Fatal("spoofed org.fleet.* must not skip consent")
+	}
+	if IsOfficialExtension("com.example.ext") {
+		t.Fatal("third-party must require consent")
+	}
+}
+
 func TestThirdPartyConsentGate(t *testing.T) {
 	data := t.TempDir()
 	store, err := storage.Open(data)
@@ -58,7 +70,7 @@ frontend:
 	if rec.State != StateActive || !rec.Consented {
 		t.Fatalf("%+v", rec)
 	}
-	if IsOfficialExtension("org.fleet.rssfeeds") != true || IsOfficialExtension("org.example.x") {
-		t.Fatal("official prefix check")
+	if !IsOfficialExtension("org.fleet.rssfeeds") || IsOfficialExtension("org.example.x") {
+		t.Fatal("official allowlist check")
 	}
 }

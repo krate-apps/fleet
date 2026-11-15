@@ -8,9 +8,12 @@ import (
 
 const consentWarning = "Third-party extensions run as processes under your Unix account without a strong sandbox. Activate only software you trust."
 
-// IsOfficialExtension reports Fleet-maintained reference packages (no consent gate).
+// IsOfficialExtension reports Fleet-maintained catalogue packages (no consent gate).
+// Only exact ids from the Official bucket allowlist qualify — not org.fleet.* prefix.
 func IsOfficialExtension(id string) bool {
-	return strings.HasPrefix(id, "org.fleet.")
+	id = strings.TrimSpace(id)
+	_, ok := officialPackageIDs[id]
+	return ok
 }
 
 // ConsentRequired reports whether activation needs an explicit operator ack (SEC-008).
