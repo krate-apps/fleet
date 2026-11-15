@@ -48,7 +48,7 @@ ORDER BY is_default DESC, name COLLATE NOCASE, id`)
 	defer rows.Close()
 	out := make([]GatewayClient, 0)
 	for rows.Next() {
-		c, err := scanGatewayClient(rows, withSecrets)
+		c, err := s.scanGatewayClient(rows, withSecrets)
 		if err != nil {
 			return nil, err
 		}
@@ -61,7 +61,7 @@ type gatewayScanner interface {
 	Scan(dest ...any) error
 }
 
-func scanGatewayClient(row gatewayScanner, withSecrets bool) (GatewayClient, error) {
+func (s *Store) scanGatewayClient(row gatewayScanner, withSecrets bool) (GatewayClient, error) {
 	var c GatewayClient
 	var enabled, isDefault int
 	var password string
@@ -75,7 +75,11 @@ func scanGatewayClient(row gatewayScanner, withSecrets bool) (GatewayClient, err
 	c.IsDefault = isDefault != 0
 	c.HasPassword = password != ""
 	if withSecrets {
-		c.Password = password
+		plain, err := decryptSecret(s.secretKey, password)
+		if err != nil {
+			return GatewayClient{}, fmt.Errorf("decrypt gateway password: %w", err)
+		}
+		c.Password = plain
 	}
 	return c, nil
 }
@@ -83,7 +87,7 @@ func scanGatewayClient(row gatewayScanner, withSecrets bool) (GatewayClient, err
 // GetGatewayClient returns one client including password (for probe).
 func (s *Store) GetGatewayClient(id string) (GatewayClient, error) {
 	row := s.db.QueryRow(`SELECT `+gatewaySelectCols+` FROM gateway_clients WHERE id = ?`, id)
-	c, err := scanGatewayClient(row, true)
+	c, err := s.scanGatewayClient(row, true)
 	if err == sql.ErrNoRows {
 		return GatewayClient{}, fmt.Errorf("gateway client not found")
 	}
@@ -96,7 +100,7 @@ func (s *Store) GetGatewayClient(id string) (GatewayClient, error) {
 // GetDefaultGatewayClient returns the configured default intake client, if any.
 func (s *Store) GetDefaultGatewayClient() (GatewayClient, bool, error) {
 	row := s.db.QueryRow(`SELECT ` + gatewaySelectCols + ` FROM gateway_clients WHERE is_default = 1 LIMIT 1`)
-	c, err := scanGatewayClient(row, true)
+	c, err := s.scanGatewayClient(row, true)
 	if err == sql.ErrNoRows {
 		return GatewayClient{}, false, nil
 	}
@@ -164,6 +168,10 @@ func (s *Store) UpsertGatewayClient(c GatewayClient, keepPassword bool) (Gateway
 	} else if c.IsDefault {
 		isDefault = 1
 	}
+	storedPassword, err := encryptSecret(s.secretKey, c.Password)
+	if err != nil {
+		return GatewayClient{}, fmt.Errorf("encrypt gateway password: %w", err)
+	}
 	tx, err := s.db.Begin()
 	if err != nil {
 		return GatewayClient{}, err
@@ -188,14 +196,14 @@ ON CONFLICT(id) DO UPDATE SET
   journal_unit=excluded.journal_unit,
   log_path=excluded.log_path,
   updated_at=excluded.updated_at
-`, c.ID, string(c.Kind), c.Name, c.URL, c.Username, c.Password, enabled, isDefault, c.JournalUnit, c.LogPath, c.CreatedAt, c.UpdatedAt)
+`, c.ID, string(c.Kind), c.Name, c.URL, c.Username, storedPassword, enabled, isDefault, c.JournalUnit, c.LogPath, c.CreatedAt, c.UpdatedAt)
 	if err != nil {
 		return GatewayClient{}, fmt.Errorf("upsert gateway client: %w", err)
 	}
 	if err := tx.Commit(); err != nil {
 		return GatewayClient{}, err
 	}
-	c.HasPassword = c.Password != ""
+	c.HasPassword = storedPassword != ""
 	c.Password = ""
 	c.IsDefault = isDefault == 1
 	return c, nil

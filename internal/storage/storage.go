@@ -12,13 +12,20 @@ import (
 
 // Store wraps Fleet's SQLite database (sessions, preferences, extensions — never torrent authority).
 type Store struct {
-	db *sql.DB
+	db        *sql.DB
+	dataDir   string
+	secretKey []byte
 }
 
 // Open creates or opens the Fleet SQLite database under dataDir.
 func Open(dataDir string) (*Store, error) {
 	if err := os.MkdirAll(dataDir, 0o700); err != nil {
 		return nil, fmt.Errorf("create data dir: %w", err)
+	}
+
+	secretKey, err := loadOrCreateSecretKey(dataDir)
+	if err != nil {
+		return nil, err
 	}
 
 	dbPath := filepath.Join(dataDir, "fleet.db")
@@ -33,7 +40,7 @@ func Open(dataDir string) (*Store, error) {
 		return nil, fmt.Errorf("ping sqlite: %w", err)
 	}
 
-	s := &Store{db: db}
+	s := &Store{db: db, dataDir: dataDir, secretKey: secretKey}
 	if err := s.migrate(); err != nil {
 		_ = db.Close()
 		return nil, err
