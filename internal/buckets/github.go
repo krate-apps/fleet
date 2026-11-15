@@ -13,7 +13,7 @@ var githubReleaseAsset = regexp.MustCompile(`(?i)^https://github\.com/[^/]+/[^/]
 // RecognizeGitHubPackageURL validates a GitHub Releases asset URL (BKT-004).
 // Returns a short diagnostic when the URL is not a pinned release download.
 func RecognizeGitHubPackageURL(raw string) error {
-	u, err := validatePackageURL(raw)
+	u, err := validatePackageURLScheme(raw)
 	if err != nil {
 		return err
 	}
@@ -32,9 +32,10 @@ func RecognizeGitHubPackageURL(raw string) error {
 	return nil
 }
 
-// NormalizePackageURL trims and rejects empty URLs.
+// NormalizePackageURL trims and rejects empty / non-http(s) URLs.
+// SSRF private-host checks run at fetch time via the safe HTTP client.
 func NormalizePackageURL(raw string) (string, error) {
-	u, err := validatePackageURL(raw)
+	u, err := validatePackageURLScheme(raw)
 	if err != nil {
 		return "", err
 	}

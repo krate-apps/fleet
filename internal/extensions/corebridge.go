@@ -12,6 +12,7 @@ import (
 	"time"
 
 	"github.com/krate-apps/fleet/internal/jobs"
+	"github.com/krate-apps/fleet/internal/netutil"
 	"github.com/krate-apps/fleet/internal/sysinfo"
 	"github.com/krate-apps/fleet/internal/tools"
 	"github.com/krate-apps/fleet/sdk/backend"
@@ -1125,8 +1126,8 @@ func (b *CoreBridge) Handle(ctx context.Context, extensionID string, caps []stri
 			return nil, err
 		}
 		u := strings.TrimSpace(p.URL)
-		if !strings.HasPrefix(u, "http://") && !strings.HasPrefix(u, "https://") {
-			return nil, fmt.Errorf("only http(s) URLs allowed")
+		if _, err := netutil.ValidatePublicURL(u); err != nil {
+			return nil, err
 		}
 		method := strings.ToUpper(strings.TrimSpace(p.Method))
 		if method == "" {
@@ -1155,7 +1156,7 @@ func (b *CoreBridge) Handle(ctx context.Context, extensionID string, caps []stri
 		}
 		client := b.HTTP
 		if client == nil {
-			client = &http.Client{Timeout: 30 * time.Second}
+			client = netutil.SafeHTTPClient(30 * time.Second)
 		}
 		req, err := http.NewRequestWithContext(ctx, method, u, bodyReader)
 		if err != nil {

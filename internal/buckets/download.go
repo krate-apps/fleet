@@ -10,12 +10,11 @@ import (
 	"path/filepath"
 	"strings"
 	"time"
+
+	"github.com/krate-apps/fleet/internal/netutil"
 )
 
-const (
-	maxRedirects = 5
-	httpTimeout  = 2 * time.Minute
-)
+const httpTimeout = 2 * time.Minute
 
 // DownloadOptions controls remote package fetches (BKT-004).
 type DownloadOptions struct {
@@ -26,22 +25,15 @@ func (r *Registry) httpClient(opts DownloadOptions) *http.Client {
 	if opts.HTTPClient != nil {
 		return opts.HTTPClient
 	}
-	return &http.Client{
-		Timeout: httpTimeout,
-		CheckRedirect: func(req *http.Request, via []*http.Request) error {
-			if len(via) >= maxRedirects {
-				return fmt.Errorf("too many redirects")
-			}
-			if req.URL.Scheme != "https" && req.URL.Scheme != "http" {
-				return fmt.Errorf("redirect to unsupported scheme")
-			}
-			return nil
-		},
-	}
+	return netutil.SafeHTTPClient(httpTimeout)
 }
 
-// validatePackageURL allows http(s) only; prefers https for GitHub releases.
+// validatePackageURL allows http(s) only and rejects private/link-local hosts.
 func validatePackageURL(raw string) (*url.URL, error) {
+	return netutil.ValidatePublicURL(raw)
+}
+
+func validatePackageURLScheme(raw string) (*url.URL, error) {
 	u, err := url.Parse(strings.TrimSpace(raw))
 	if err != nil {
 		return nil, err
@@ -56,8 +48,17 @@ func validatePackageURL(raw string) (*url.URL, error) {
 }
 
 // FetchToFile downloads url into destPath with size limits.
+// Production clients (nil HTTPClient) use SSRF-safe dialing; custom clients are for tests only.
 func (r *Registry) FetchToFile(ctx context.Context, rawURL, destPath string, opts DownloadOptions) error {
-	u, err := validatePackageURL(rawURL)
+	var (
+		u   *url.URL
+		err error
+	)
+	if opts.HTTPClient == nil {
+		u, err = validatePackageURL(rawURL)
+	} else {
+		u, err = validatePackageURLScheme(rawURL)
+	}
 	if err != nil {
 		return err
 	}
