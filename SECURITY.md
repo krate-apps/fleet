@@ -35,8 +35,8 @@ Fleet is a self-hosted UI in front of rTorrent. Treat the host and reverse proxy
 - Keep `auth.disable: false` except for local debugging on loopback (Fleet refuses `auth.disable` on non-loopback listen addresses).
 - Set `auth.secure_cookies: true` behind HTTPS (Fleet also sets `Secure` when `X-Forwarded-Proto: https`).
 - Configure `security.process_exec_allowlist` / `process_exec_dirs` before any extension may use `process.exec` (fail-closed when empty).
-- Prefer webhook auth via `Authorization: Bearer` or `X-Api-Key` over path tokens ([Hooks](docs/developer/hooks.md)).
-- Keep `data_dir` permissions tight; gateway passwords are stored as `enc:v1:` AES-GCM under `data_dir` (key file `.fleet-secrets.key`, mode `0600`).
+- Authenticate extension webhooks with `Authorization: Bearer` or `X-Api-Key` only — the token must not appear in the URL ([Hooks](docs/developer/hooks.md)).
+- Keep `data_dir` permissions tight; gateway passwords are `enc:v1:` AES-GCM. The master key is resolved from systemd `CREDENTIALS_DIRECTORY/fleet-secrets.key`, then the Linux user keyring (`fleet-secrets`), then `data_dir/.fleet-secrets.key` (`0600`). Prefer `LoadCredential=` on the unit when possible.
 - Pin catalogue installs with `sha256` hashes; do not install unsigned archives from untrusted buckets.
 
 ## Related docs

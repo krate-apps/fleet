@@ -3,15 +3,15 @@
 Fleet may expose auth-exempt ingest routes for active extensions:
 
 ```text
-POST /api/v1/hooks/{extensionId}/{token}
+POST /api/v1/hooks/{extensionId}
 ```
 
-Authentication (any one may succeed):
+Authenticate with the extension’s stored `webhookToken` using **one** of:
 
-1. **Preferred:** `Authorization: Bearer <webhookToken>` or `X-Api-Key: <webhookToken>`
-2. **Compatibility:** path segment `{token}` (Servarr/NZB-style URLs)
+- `Authorization: Bearer <webhookToken>`
+- `X-Api-Key: <webhookToken>`
 
-The secret must match the extension’s stored `webhookToken`. Core verifies it, then calls `ext.<short>.ingest` on the worker. Path-only auth still works but Fleet logs a warning — path tokens appear in access logs and `Referer`.
+Core verifies the secret, then calls `ext.<short>.ingest` on the worker. The token must **not** appear in the URL (access logs / `Referer`).
 
 Examples:
 

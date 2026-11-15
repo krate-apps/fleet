@@ -2,7 +2,7 @@
 
 Fleet’s torrent authority for V1 remains **rTorrent**. Optional gateways register additional clients under **Settings → Clients**.
 
-Gateway passwords are stored encrypted at rest (`enc:v1:` AES-GCM under `data_dir`, key file `.fleet-secrets.key`). Legacy plaintext rows are still readable and migrate on the next save.
+Gateway passwords are stored encrypted at rest (`enc:v1:` AES-GCM). The AES master key is resolved in order: systemd `CREDENTIALS_DIRECTORY/fleet-secrets.key` → Linux user keyring description `fleet-secrets` → `data_dir/.fleet-secrets.key` (`0600`). Legacy plaintext password rows remain readable and migrate on the next save. See the commented `LoadCredential=` line in [`examples/systemd/fleet@.service`](examples/systemd/fleet@.service).
 
 ## Supported kinds
 
