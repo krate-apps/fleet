@@ -47,9 +47,24 @@ func TestSetupLoginLogoutAndLockout(t *testing.T) {
 		t.Fatalf("%+v %+v %v", s2, user, err)
 	}
 	rec := httptest.NewRecorder()
-	svc.SetSessionCookies(rec, sess)
+	cookieReq := httptest.NewRequest(http.MethodGet, "http://127.0.0.1/", nil)
+	svc.SetSessionCookies(rec, cookieReq, sess)
 	if c := rec.Result().Cookies(); len(c) < 2 {
 		t.Fatalf("cookies=%v", c)
+	}
+	for _, c := range rec.Result().Cookies() {
+		if c.Secure {
+			t.Fatalf("cookie %s should not be Secure without HTTPS", c.Name)
+		}
+	}
+	recHTTPS := httptest.NewRecorder()
+	httpsReq := httptest.NewRequest(http.MethodGet, "http://127.0.0.1/", nil)
+	httpsReq.Header.Set("X-Forwarded-Proto", "https")
+	svc.SetSessionCookies(recHTTPS, httpsReq, sess)
+	for _, c := range recHTTPS.Result().Cookies() {
+		if !c.Secure {
+			t.Fatalf("cookie %s should be Secure behind X-Forwarded-Proto https", c.Name)
+		}
 	}
 	req := httptest.NewRequest(http.MethodPost, "/api/v1/x", nil)
 	req.Header.Set(CSRFHeader, sess.CSRFToken)

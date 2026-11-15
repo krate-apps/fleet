@@ -48,7 +48,7 @@ func (s *Server) handleAuthSetup(w http.ResponseWriter, r *http.Request) {
 		writeJSON(w, http.StatusInternalServerError, map[string]string{"error": err.Error()})
 		return
 	}
-	s.auth.SetSessionCookies(w, sess)
+	s.auth.SetSessionCookies(w, r, sess)
 	writeJSON(w, http.StatusOK, map[string]any{
 		"ok":   true,
 		"user": map[string]any{"id": user.ID, "username": user.Username, "isAdmin": user.IsAdmin},
@@ -83,7 +83,7 @@ func (s *Server) handleAuthLogin(w http.ResponseWriter, r *http.Request) {
 		writeJSON(w, http.StatusInternalServerError, map[string]string{"error": err.Error()})
 		return
 	}
-	s.auth.SetSessionCookies(w, sess)
+	s.auth.SetSessionCookies(w, r, sess)
 	writeJSON(w, http.StatusOK, map[string]any{
 		"ok":   true,
 		"user": map[string]any{"id": user.ID, "username": user.Username, "isAdmin": user.IsAdmin},
@@ -98,7 +98,7 @@ func (s *Server) handleAuthLogout(w http.ResponseWriter, r *http.Request) {
 	if c, err := r.Cookie(auth.SessionCookie); err == nil {
 		_ = s.auth.DeleteSession(c.Value)
 	}
-	s.auth.ClearSessionCookies(w)
+	s.auth.ClearSessionCookies(w, r)
 	writeJSON(w, http.StatusOK, map[string]any{"ok": true})
 }
 

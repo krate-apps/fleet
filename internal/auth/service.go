@@ -258,14 +258,17 @@ func (s *Service) RecordLoginSuccess(key string) {
 }
 
 // SetSessionCookies writes session and CSRF cookies (SEC-004).
-func (s *Service) SetSessionCookies(w http.ResponseWriter, sess *Session) {
+// Secure is set when auth.secure_cookies is true or the request is HTTPS
+// via X-Forwarded-Proto (typical reverse-proxy deployments).
+func (s *Service) SetSessionCookies(w http.ResponseWriter, r *http.Request, sess *Session) {
+	secure := s.secure || requestIndicatesHTTPS(r)
 	http.SetCookie(w, &http.Cookie{
 		Name:     SessionCookie,
 		Value:    sess.ID,
 		Path:     "/",
 		HttpOnly: true,
 		SameSite: http.SameSiteLaxMode,
-		Secure:   s.secure,
+		Secure:   secure,
 		Expires:  sess.ExpiresAt,
 	})
 	http.SetCookie(w, &http.Cookie{
@@ -274,16 +277,27 @@ func (s *Service) SetSessionCookies(w http.ResponseWriter, sess *Session) {
 		Path:     "/",
 		HttpOnly: false,
 		SameSite: http.SameSiteLaxMode,
-		Secure:   s.secure,
+		Secure:   secure,
 		Expires:  sess.ExpiresAt,
 	})
 }
 
 // ClearSessionCookies removes auth cookies.
-func (s *Service) ClearSessionCookies(w http.ResponseWriter) {
+func (s *Service) ClearSessionCookies(w http.ResponseWriter, r *http.Request) {
 	expired := time.Unix(0, 0).UTC()
-	http.SetCookie(w, &http.Cookie{Name: SessionCookie, Value: "", Path: "/", HttpOnly: true, Expires: expired, MaxAge: -1})
-	http.SetCookie(w, &http.Cookie{Name: CSRFCookie, Value: "", Path: "/", Expires: expired, MaxAge: -1})
+	secure := s.secure || requestIndicatesHTTPS(r)
+	http.SetCookie(w, &http.Cookie{Name: SessionCookie, Value: "", Path: "/", HttpOnly: true, Secure: secure, Expires: expired, MaxAge: -1})
+	http.SetCookie(w, &http.Cookie{Name: CSRFCookie, Value: "", Path: "/", Secure: secure, Expires: expired, MaxAge: -1})
+}
+
+func requestIndicatesHTTPS(r *http.Request) bool {
+	if r == nil {
+		return false
+	}
+	if r.TLS != nil {
+		return true
+	}
+	return strings.EqualFold(strings.TrimSpace(r.Header.Get("X-Forwarded-Proto")), "https")
 }
 
 // ValidateCSRF checks the double-submit CSRF token (SEC-005).
