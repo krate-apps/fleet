@@ -30,6 +30,11 @@ Fleet is a self-hosted BitTorrent **web UI** for an existing **rTorrent** instan
 | [Tools](developer/tools.md) | mktorrent / dumptorrent helpers |
 | [Publishing extensions](developer/publishing-extensions.md) | Release assets, bucket pins |
 
+## Project
+
+- [Contributing](../CONTRIBUTING.md) — setup, PRs, Conventional Commits
+- [Security](../SECURITY.md) — vulnerability reporting and operator hardening
+
 ## Related repositories
 
 - Host: [krate-apps/fleet](https://github.com/krate-apps/fleet)

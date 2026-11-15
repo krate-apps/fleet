@@ -12,6 +12,7 @@ Fleet is not a BitTorrent engine. It connects to rTorrent over SCGI/XML-RPC, ser
 | --- | --- |
 | Users | [Install](docs/user/install.md) · [Reverse proxy](docs/user/reverse-proxy.md) · [UI](docs/user/ui.md) · [Clients](docs/user/clients.md) · [Extensions](docs/user/extensions.md) · [Themes](docs/user/themes.md) · [Coming from…](docs/user/coming-from.md) · [FAQ](docs/user/faq.md) |
 | Developers | [Architecture](docs/developer/architecture.md) · [Build](docs/developer/build.md) · [SDK](docs/developer/sdk.md) · [Create extension](docs/developer/create-extension.md) · [Create bucket](docs/developer/create-bucket.md) · [Hooks](docs/developer/hooks.md) · [Tools](docs/developer/tools.md) · [Publishing](docs/developer/publishing-extensions.md) |
+| Project | [Contributing](CONTRIBUTING.md) · [Security](SECURITY.md) |
 
 Official catalogue: [fleet-official-bucket](https://github.com/krate-apps/fleet-official-bucket).
 
