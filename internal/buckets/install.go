@@ -10,16 +10,18 @@ import (
 	"github.com/krate-apps/fleet/sdk/manifest"
 )
 
-// InstallArchive unpacks a local .tar.gz (optional sha256) into the install root (BKT-005/010).
+// InstallArchive unpacks a local .tar.gz into the install root (BKT-005/010).
+// sha256sum is required (bare hex or sha256:<hex>).
 func (r *Registry) InstallArchive(archivePath, sha256sum string) (*manifest.Manifest, error) {
 	abs, err := filepath.Abs(strings.TrimSpace(archivePath))
 	if err != nil {
 		return nil, err
 	}
-	if sha256sum != "" {
-		if err := VerifySHA256(abs, sha256sum); err != nil {
-			return nil, err
-		}
+	if strings.TrimSpace(sha256sum) == "" {
+		return nil, fmt.Errorf("sha256 is required for archive installs")
+	}
+	if err := VerifySHA256(abs, sha256sum); err != nil {
+		return nil, err
 	}
 	tmp, err := os.MkdirTemp(r.fleetDataDir, "fleet-extract-*")
 	if err != nil {
@@ -64,7 +66,7 @@ func (r *Registry) InstallURL(ctx context.Context, rawURL, sha256sum string, opt
 }
 
 func hostLooksLikeGitHub(raw string) bool {
-	u, err := validatePackageURL(raw)
+	u, err := validatePackageURLScheme(raw)
 	if err != nil {
 		return false
 	}
