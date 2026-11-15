@@ -37,12 +37,24 @@ jobs:
         run: |
           set -euo pipefail
           bash scripts/pack.sh dist
+      - name: Release notes
+        env:
+          TAG: ${{ steps.ver.outputs.tag }}
+          REPO: ${{ github.repository }}
+        run: |
+          set -euo pipefail
+          mkdir -p dist
+          # Commits since the previous semver tag (exclusive) up to HEAD.
+          bash scripts/release-notes.sh > dist/RELEASE_NOTES.md
+          echo "----- RELEASE NOTES -----"
+          cat dist/RELEASE_NOTES.md
       - name: Create release
         uses: softprops/action-gh-release@v3
         with:
           tag_name: ${{ steps.ver.outputs.tag }}
           name: Fleet ${{ steps.ver.outputs.tag }}
-          generate_release_notes: true
+          body_path: dist/RELEASE_NOTES.md
+          generate_release_notes: false
           files: |
             dist/*.tgz
             dist/SHA256SUMS
