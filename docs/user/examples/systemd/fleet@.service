@@ -15,6 +15,9 @@ NoNewPrivileges=true
 PrivateTmp=true
 ProtectSystem=strict
 ProtectHome=read-only
+# Optional: inject the AES master key (base64 of 32 raw bytes) via systemd credentials.
+# Fleet reads $CREDENTIALS_DIRECTORY/fleet-secrets.key before data_dir/.fleet-secrets.key.
+#   LoadCredential=fleet-secrets.key:/home/%i/.config/fleet/fleet-secrets.key
 # SQLite / cache / config writes. Append each rtorrent.download_roots path used for
 # erase_data / mktorrent (ProtectHome=read-only blocks other $HOME writes), e.g.:
 #   ReadWritePaths=... /home/%i/medias

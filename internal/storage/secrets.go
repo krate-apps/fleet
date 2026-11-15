@@ -13,12 +13,52 @@ import (
 )
 
 const (
-	secretKeyFile   = ".fleet-secrets.key"
-	secretEncPrefix = "enc:v1:"
+	secretKeyFile         = ".fleet-secrets.key"
+	secretCredentialName  = "fleet-secrets.key"
+	secretKeyringDesc     = "fleet-secrets"
+	secretEncPrefix       = "enc:v1:"
+	secretKeyBytes        = 32
 )
 
-// loadOrCreateSecretKey returns a 32-byte AES key from dataDir/.fleet-secrets.key (0600).
+// loadOrCreateSecretKey resolves the AES master key in order:
+// 1. systemd CREDENTIALS_DIRECTORY / fleet-secrets.key
+// 2. Linux user keyring description "fleet-secrets"
+// 3. dataDir/.fleet-secrets.key (create 0600 if missing)
 func loadOrCreateSecretKey(dataDir string) ([]byte, error) {
+	if key, ok, err := loadKeyFromCredentialsDir(); err != nil {
+		return nil, err
+	} else if ok {
+		return key, nil
+	}
+	if key, ok, err := loadKeyFromKeyring(); err != nil {
+		return nil, err
+	} else if ok {
+		return key, nil
+	}
+	return loadOrCreateSecretKeyFile(dataDir)
+}
+
+func loadKeyFromCredentialsDir() ([]byte, bool, error) {
+	dir := strings.TrimSpace(os.Getenv("CREDENTIALS_DIRECTORY"))
+	if dir == "" {
+		return nil, false, nil
+	}
+	path := filepath.Join(dir, secretCredentialName)
+	raw, err := os.ReadFile(path)
+	if err != nil {
+		if os.IsNotExist(err) {
+			return nil, false, nil
+		}
+		return nil, false, fmt.Errorf("read credential %s: %w", secretCredentialName, err)
+	}
+	key, err := decodeSecretKeyMaterial(raw)
+	if err != nil {
+		return nil, false, fmt.Errorf("credential %s: %w", secretCredentialName, err)
+	}
+	return key, true, nil
+}
+
+func loadOrCreateSecretKeyFile(dataDir string) ([]byte, error) {
 	if strings.TrimSpace(dataDir) == "" {
 		return nil, fmt.Errorf("data dir required for secret key")
 	}
@@ -28,25 +68,39 @@ func loadOrCreateSecretKey(dataDir string) ([]byte, error) {
 	path := filepath.Join(dataDir, secretKeyFile)
 	raw, err := os.ReadFile(path)
 	if err == nil {
-		key, err := base64.StdEncoding.DecodeString(strings.TrimSpace(string(raw)))
+		key, err := decodeSecretKeyMaterial(raw)
 		if err != nil {
-			return nil, fmt.Errorf("decode secret key: %w", err)
-		}
-		if len(key) != 32 {
-			return nil, fmt.Errorf("secret key must be 32 bytes, got %d", len(key))
+			return nil, err
 		}
 		return key, nil
 	}
 	if !os.IsNotExist(err) {
 		return nil, fmt.Errorf("read secret key: %w", err)
 	}
-	key := make([]byte, 32)
+	key := make([]byte, secretKeyBytes)
 	if _, err := io.ReadFull(rand.Reader, key); err != nil {
 		return nil, fmt.Errorf("generate secret key: %w", err)
 	}
 	encoded := base64.StdEncoding.EncodeToString(key) + "\n"
 	if err := os.WriteFile(path, []byte(encoded), 0o600); err != nil {
 		return nil, fmt.Errorf("write secret key: %w", err)
+	}
+	// Best-effort: also publish into the user keyring when available.
+	_ = storeKeyInKeyring(key)
+	return key, nil
+}
+
+func decodeSecretKeyMaterial(raw []byte) ([]byte, error) {
+	trimmed := strings.TrimSpace(string(raw))
+	if trimmed == "" {
+		return nil, fmt.Errorf("empty secret key material")
+	}
+	key, err := base64.StdEncoding.DecodeString(trimmed)
+	if err != nil {
+		return nil, fmt.Errorf("decode secret key: %w", err)
+	}
+	if len(key) != secretKeyBytes {
+		return nil, fmt.Errorf("secret key must be %d bytes, got %d", secretKeyBytes, len(key))
 	}
 	return key, nil
 }

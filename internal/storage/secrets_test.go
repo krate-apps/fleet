@@ -1,6 +1,7 @@
 package storage
 
 import (
+	"encoding/base64"
 	"os"
 	"path/filepath"
 	"strings"
@@ -10,6 +11,8 @@ import (
 )
 
 func TestEncryptDecryptSecretRoundTrip(t *testing.T) {
+	t.Setenv("CREDENTIALS_DIRECTORY", "")
+	clearSecretKeyring()
 	key, err := loadOrCreateSecretKey(t.TempDir())
 	if err != nil {
 		t.Fatal(err)
@@ -28,6 +31,8 @@ func TestEncryptDecryptSecretRoundTrip(t *testing.T) {
 }
 
 func TestDecryptSecretLegacyPlaintext(t *testing.T) {
+	t.Setenv("CREDENTIALS_DIRECTORY", "")
+	clearSecretKeyring()
 	key, err := loadOrCreateSecretKey(t.TempDir())
 	if err != nil {
 		t.Fatal(err)
@@ -39,6 +44,8 @@ func TestDecryptSecretLegacyPlaintext(t *testing.T) {
 }
 
 func TestLoadOrCreateSecretKeyPersists(t *testing.T) {
+	t.Setenv("CREDENTIALS_DIRECTORY", "")
+	clearSecretKeyring()
 	dir := t.TempDir()
 	k1, err := loadOrCreateSecretKey(dir)
 	if err != nil {
@@ -60,7 +67,36 @@ func TestLoadOrCreateSecretKeyPersists(t *testing.T) {
 	}
 }
 
+func TestLoadSecretKeyFromCredentialsDirectory(t *testing.T) {
+	clearSecretKeyring()
+	credDir := t.TempDir()
+	dataDir := t.TempDir()
+	key := make([]byte, secretKeyBytes)
+	for i := range key {
+		key[i] = byte(i + 1)
+	}
+	encoded := base64.StdEncoding.EncodeToString(key) + "\n"
+	if err := os.WriteFile(filepath.Join(credDir, secretCredentialName), []byte(encoded), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	t.Setenv("CREDENTIALS_DIRECTORY", credDir)
+
+	got, err := loadOrCreateSecretKey(dataDir)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if string(got) != string(key) {
+		t.Fatalf("credential key not used")
+	}
+	// Must not fall through to creating a data_dir key when credentials win.
+	if _, err := os.Stat(filepath.Join(dataDir, secretKeyFile)); !os.IsNotExist(err) {
+		t.Fatalf("unexpected data_dir key file, err=%v", err)
+	}
+}
+
 func TestGatewayPasswordEncryptedAtRest(t *testing.T) {
+	t.Setenv("CREDENTIALS_DIRECTORY", "")
+	clearSecretKeyring()
 	store, err := Open(t.TempDir())
 	if err != nil {
 		t.Fatal(err)
@@ -95,6 +131,8 @@ func TestGatewayPasswordEncryptedAtRest(t *testing.T) {
 }
 
 func TestGatewayPasswordLegacyMigrationOnSave(t *testing.T) {
+	t.Setenv("CREDENTIALS_DIRECTORY", "")
+	clearSecretKeyring()
 	store, err := Open(t.TempDir())
 	if err != nil {
 		t.Fatal(err)
