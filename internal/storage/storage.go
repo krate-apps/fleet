@@ -139,7 +139,7 @@ func (s *Store) Close() error {
 	return s.db.Close()
 }
 
-// DB exposes the underlying handle for packages that need raw SQL during early milestones.
+// DB returns the underlying SQLite handle for packages that run SQL outside Store methods.
 func (s *Store) DB() *sql.DB {
 	return s.db
 }
