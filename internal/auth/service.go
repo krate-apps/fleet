@@ -6,6 +6,7 @@ import (
 	"encoding/base64"
 	"fmt"
 	"net/http"
+	"net/url"
 	"strings"
 	"sync"
 	"time"
@@ -297,17 +298,26 @@ func (s *Service) ValidateCSRF(r *http.Request, sess *Session) error {
 }
 
 // AllowedWebSocketOrigin validates Origin against the request Host (SEC-005).
+// Browser clients must send Origin; the host must match exactly (no prefix spoofing).
 func AllowedWebSocketOrigin(r *http.Request) bool {
-	origin := r.Header.Get("Origin")
+	origin := strings.TrimSpace(r.Header.Get("Origin"))
 	if origin == "" {
-		return true // non-browser clients
+		// Non-browser clients (CLI) omit Origin; browsers always send it for WS.
+		return true
 	}
-	host := r.Host
+	host := strings.TrimSpace(r.Host)
 	if host == "" {
 		return false
 	}
-	return strings.HasPrefix(origin, "https://"+host) ||
-		strings.HasPrefix(origin, "http://"+host)
+	u, err := url.Parse(origin)
+	if err != nil || (u.Scheme != "http" && u.Scheme != "https") {
+		return false
+	}
+	originHost := u.Host
+	if originHost == "" {
+		return false
+	}
+	return strings.EqualFold(originHost, host)
 }
 
 func randomToken(n int) (string, error) {

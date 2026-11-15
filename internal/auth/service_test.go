@@ -81,4 +81,9 @@ func TestAllowedWebSocketOrigin(t *testing.T) {
 	if AllowedWebSocketOrigin(req) {
 		t.Fatal("evil origin should fail")
 	}
+	req.Host = "host.example"
+	req.Header.Set("Origin", "https://host.example.evil.com")
+	if AllowedWebSocketOrigin(req) {
+		t.Fatal("prefix-spoofed origin should fail")
+	}
 }
