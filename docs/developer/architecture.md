@@ -4,8 +4,8 @@
 
 Fleet is a single Go binary that:
 
-1. Talks to your torrent **clients** — rTorrent (SCGI/XML-RPC) and optional gateways for qBittorrent, Deluge, and Transmission ([Clients](../user/clients.md))
-2. Serves a Vue 3 frontend (embedded after `make embed`)
+1. Talks to your torrent **clients** — qBittorrent, Deluge, Transmission, and/or rTorrent ([Clients](../user/clients.md))
+2. Serves a Vue 3 frontend (embedded after `make embed` — toolchain in [Build](build.md))
 3. Keeps Fleet-owned state in **SQLite** (sessions, preferences, extensions — never torrent authority; engines stay in the clients)
 
 ## Layout

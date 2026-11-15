@@ -12,25 +12,15 @@ Large or cross-cutting changes (new RPC capabilities, auth model, packaging layo
 
 ## Development setup
 
-Requirements: Go 1.22+, Node.js 22+ (frontend build only). Full UI smoke is easiest with an rTorrent SCGI endpoint; gateway kinds (qBittorrent / Deluge / Transmission) are covered under [Clients](docs/user/clients.md).
+Clone the repo, then follow **[Build](docs/developer/build.md)** for toolchain versions and `make embed build`. Connect any supported client ([Clients](docs/user/clients.md)).
 
 ```bash
 git clone https://github.com/krate-apps/fleet.git
 cd fleet
-go mod tidy
-cd web && npm install && npm run build && cd ..
 make embed build
 ./bin/fleet -config docs/user/examples/config.example.yaml
+make test
 ```
-
-Open http://127.0.0.1:8080/ — health: `GET /api/v1/health`.
-
-```bash
-make test      # unit + web typecheck + script smokes
-make certify   # broader local gate
-```
-
-Path-mode UI builds: `FLEET_UI_BASE=/your/prefix/ make embed build` ([Reverse proxy](docs/user/reverse-proxy.md)).
 
 ## What we accept
 

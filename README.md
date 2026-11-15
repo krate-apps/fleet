@@ -1,8 +1,8 @@
 # Fleet
 
-Self-hosted **multi-client** BitTorrent web UI for **rTorrent**, **qBittorrent**, **Deluge**, and **Transmission**.
+Self-hosted **multi-client** BitTorrent web UI for **qBittorrent**, **Deluge**, **Transmission**, and **rTorrent**.
 
-Fleet is not a BitTorrent engine. It talks to your existing clients (rTorrent over SCGI/XML-RPC; others over their WebUI/API), serves a Vue 3 frontend from a single Go binary, and keeps Fleet-owned state in SQLite (sessions, preferences, extensions — never torrent authority). One list, one UI — see [Clients](docs/user/clients.md).
+Fleet is not a BitTorrent engine. One Vue UI talks to your existing clients, ships as a single Go binary, and keeps Fleet-owned state in SQLite (sessions, preferences, extensions — never torrent authority). See [Clients](docs/user/clients.md).
 
 ## Documentation
 
@@ -16,28 +16,22 @@ Fleet is not a BitTorrent engine. It talks to your existing clients (rTorrent ov
 
 Official catalogue: [fleet-official-bucket](https://github.com/krate-apps/fleet-official-bucket).
 
-## Requirements
+## Quick start
 
-- Go 1.22+
-- Node.js 22+ (frontend build only; not required in production)
-- At least one torrent client: rTorrent (SCGI) and/or qBittorrent / Deluge / Transmission via **Settings → Clients**
-
-## Quick start (development)
+Toolchain versions and the full `make embed build` cycle live in **[Build](docs/developer/build.md)** (single source of truth).
 
 ```bash
-go mod tidy
-cd web && npm install && npm run build && cd ..
 make embed build
 ./bin/fleet -config docs/user/examples/config.example.yaml
 ```
 
-Open http://127.0.0.1:8080/ — API health: `GET /api/v1/health`.
+Open http://127.0.0.1:8080/ — API health: `GET /api/v1/health`. Register clients under **Settings → Clients** (and/or `rtorrent.address` in config).
 
 ## Layout
 
 ```text
 cmd/fleet/          Go entrypoint (+ embedded web/)
-internal/           API, auth, rtorrent, sync, extensions, fsops, share, …
+internal/           API, auth, clients/gateways, sync, extensions, fsops, share, …
 web/                Vue 3 + TypeScript + Vite
 sdk/                Go helpers for extension contracts (manifest, UI, theme, IPC)
 docs/               User + developer guides; JSON Schema under docs/developer/schemas/
@@ -55,9 +49,7 @@ make build
 ./install.sh --non-interactive --user "$USER" --bin ./bin/fleet
 ```
 
-Does **not** install or reconfigure your torrent clients. For rTorrent, point `rtorrent.address` in `~/.config/fleet/config.yaml` at your SCGI socket or TCP endpoint and set `rtorrent.download_roots` for erase_data, Files, shares, and media tools. Register other clients under **Settings → Clients**.
-
-See [Install](docs/user/install.md) and [Clients](docs/user/clients.md) for systemd, reverse proxy (`FLEET_UI_BASE`), updates, and uninstall.
+Does **not** install or reconfigure your torrent clients. Point Fleet at them via config and **Settings → Clients** — see [Install](docs/user/install.md), [Docker](docs/user/docker.md), and [Clients](docs/user/clients.md).
 
 ## Tests
 
@@ -66,7 +58,7 @@ make test
 make certify
 ```
 
-See `tests/README.md` and [Build](docs/developer/build.md).
+Details: [Build](docs/developer/build.md).
 
 ## License
 

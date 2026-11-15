@@ -1,6 +1,6 @@
 # Docker
 
-Fleet publishes a **Fleet-only** image to GitHub Container Registry. It does **not** bundle rTorrent, qBittorrent, Deluge, or Transmission — connect those as external clients ([Clients](clients.md)).
+Fleet publishes a **Fleet-only** image to GitHub Container Registry. It does **not** bundle torrent engines — connect qBittorrent, Deluge, Transmission, and/or rTorrent as external clients ([Clients](clients.md)).
 
 Image: `ghcr.io/krate-apps/fleet` (tags `vX.Y.Z` and `latest`, **linux/amd64** only for now).
 
@@ -42,9 +42,9 @@ docker run --rm -p 8080:8080 \
 
 ## Connecting external clients
 
-- **rTorrent** — set `rtorrent.address` to a reachable SCGI endpoint, e.g. `scgi://host.docker.internal:5000`, or mount a Unix socket into `/data` and use `unix:///data/...`.
-- **qBittorrent / Deluge / Transmission** — register them under **Settings → Clients** with URLs that resolve from inside the container (`http://host.docker.internal:…` or a shared Docker network name).
-- For Files / erase_data / shares against rTorrent, mount the download directories into the container and list them under `rtorrent.download_roots`.
+- **qBittorrent / Deluge / Transmission** — **Settings → Clients** with URLs reachable from the container (`http://host.docker.internal:…` or a shared Compose network name).
+- **rTorrent** — `rtorrent.address` (e.g. `scgi://host.docker.internal:5000`, or a Unix socket mounted under `/data`).
+- Path-guarded Files / erase_data: mount download dirs and list them under `rtorrent.download_roots` when using rTorrent.
 
 ## TLS and cookies
 

@@ -2,7 +2,7 @@
 
 English user and developer guides for [Fleet](https://github.com/krate-apps/fleet).
 
-Fleet is a self-hosted **multi-client** BitTorrent **web UI** for **rTorrent**, **qBittorrent**, **Deluge**, and **Transmission**. It is not a BitTorrent engine — your clients keep torrent authority.
+Fleet is a self-hosted **multi-client** BitTorrent **web UI** for **qBittorrent**, **Deluge**, **Transmission**, and **rTorrent**. It is not a BitTorrent engine — your clients keep torrent authority.
 
 ## User guides
 

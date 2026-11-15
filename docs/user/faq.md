@@ -2,11 +2,11 @@
 
 ## Does Fleet replace my torrent client?
 
-No. Fleet is a multi-client web UI and control plane. rTorrent, qBittorrent, Deluge, and Transmission remain the BitTorrent engines.
+No. Fleet is a multi-client web UI and control plane. Your qBittorrent, Deluge, Transmission, and/or rTorrent instances remain the BitTorrent engines.
 
 ## Which clients are supported?
 
-rTorrent (SCGI), plus qBittorrent, Deluge, and Transmission via **Settings → Clients**. See [Clients](clients.md).
+qBittorrent, Deluge, Transmission, and rTorrent. See [Clients](clients.md).
 
 ## Where is my data?
 
@@ -14,11 +14,11 @@ rTorrent (SCGI), plus qBittorrent, Deluge, and Transmission via **Settings → C
 - SQLite / extensions / backups: `~/.local/share/fleet/`
 - Binary prefix: `/opt/<user>/fleet/` (default)
 
-Torrent payloads stay where each client already stores them. For rTorrent path-guarded features, Fleet only touches paths under `rtorrent.download_roots`.
+Torrent payloads stay where each client already stores them.
 
 ## Why can’t I erase data / use Files / share links?
 
-Those features need `rtorrent.download_roots` set to absolute directories that contain the payloads (rTorrent integration). Paths outside those roots are rejected.
+Those path-guarded features use `rtorrent.download_roots` (absolute directories). Paths outside those roots are rejected. See [Clients](clients.md).
 
 ## How do I install an official extension?
 

@@ -3,19 +3,16 @@
 ## Requirements
 
 - Linux amd64 (Debian 13 reference)
-- At least one torrent client Fleet can reach:
-  - **rTorrent** with SCGI (Unix socket or TCP) — deepest integration (Files / `download_roots` / erase_data)
-  - and/or **qBittorrent**, **Deluge**, **Transmission** registered under **Settings → Clients**
-- Optional: Node.js 22+ only when building the UI from source
+- At least one torrent client Fleet can reach: **qBittorrent**, **Deluge**, **Transmission**, and/or **rTorrent** — see [Clients](clients.md)
 
-Fleet does **not** install or reconfigure your torrent clients.
+Fleet does **not** install or reconfigure your torrent clients. Building from source uses the toolchain in [Build](../developer/build.md).
 
 Prefer containers? See [Docker](docker.md) (`ghcr.io/krate-apps/fleet`) — Fleet-only image; clients stay external. This page covers the binary / systemd install.
 
 ## Quick install (from a built binary)
 
 ```bash
-make embed build
+# From a release tarball, or after: make embed build  (see Build)
 ./install.sh --non-interactive --user "$USER" --bin ./bin/fleet
 ```
 
@@ -91,7 +88,7 @@ See [Reverse proxy](reverse-proxy.md) for `ReadWritePaths` notes with `ProtectHo
 
 Caddy, nginx, and Apache examples (path mode + subdomain): **[Reverse proxy](reverse-proxy.md)**.
 
-Path-mode UI build:
+Path-mode UI build (toolchain: [Build](../developer/build.md)):
 
 ```bash
 FLEET_UI_BASE=/your/prefix/ make embed build

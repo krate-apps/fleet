@@ -1,16 +1,18 @@
 # Example Fleet configuration for a single Unix user instance.
 # Copy to ~/.config/fleet/config.yaml and adjust.
+# Multi-client: register qBittorrent / Deluge / Transmission under Settings → Clients.
+# Optional rTorrent SCGI below; leave address empty if you only use gateways.
 
 listen:
   host: 127.0.0.1
   port: 8080
 
-# Unix socket preferred (Krate example: unix:///run/krate/user/<user>.rtorrent.sock).
-#   address: "unix:///run/krate/user/alice.rtorrent.sock"
+# Optional rTorrent (SCGI). Examples:
+#   address: "unix:///run/user/1000/rtorrent.sock"
 #   address: "scgi://127.0.0.1:5000"
 rtorrent:
   address: ""
-  # Required for erase_data, Files UI (/api/v1/fs/*), public shares, and path-guarded tools.
+  # Used for Files / erase_data / shares path checks when using rTorrent.
   download_roots: []
 
 # Optional JSON-capable helpers (CORE-014/015). Leave empty until binaries are installed.
