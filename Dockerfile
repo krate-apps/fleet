@@ -2,7 +2,7 @@
 # Transmission) stay outside this image — see docs/user/docker.md.
 
 ARG GO_VERSION=1.22
-ARG NODE_VERSION=22
+ARG NODE_VERSION=26
 
 # --- frontend ---
 FROM node:${NODE_VERSION}-bookworm-slim AS web
