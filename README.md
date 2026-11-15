@@ -1,8 +1,8 @@
 # Fleet
 
-Modern, self-hosted BitTorrent web UI for an existing **rTorrent** instance.
+Self-hosted **multi-client** BitTorrent web UI for **rTorrent**, **qBittorrent**, **Deluge**, and **Transmission**.
 
-Fleet is not a BitTorrent engine. It connects to rTorrent over SCGI/XML-RPC, serves a Vue 3 frontend from a single Go binary, and keeps its own state in SQLite (sessions, preferences, extensions — never torrent authority).
+Fleet is not a BitTorrent engine. It talks to your existing clients (rTorrent over SCGI/XML-RPC; others over their WebUI/API), serves a Vue 3 frontend from a single Go binary, and keeps Fleet-owned state in SQLite (sessions, preferences, extensions — never torrent authority). One list, one UI — see [Clients](docs/user/clients.md).
 
 ## Documentation
 
@@ -16,15 +16,11 @@ Fleet is not a BitTorrent engine. It connects to rTorrent over SCGI/XML-RPC, ser
 
 Official catalogue: [fleet-official-bucket](https://github.com/krate-apps/fleet-official-bucket).
 
-## Status
-
-Milestone **M6 — V1 public candidate**: official SDK extensions, native Files browser, system disk/load metrics, and installable themes. This is **not** a claim of full ruTorrent behavioural parity.
-
 ## Requirements
 
 - Go 1.22+
 - Node.js 22+ (frontend build only; not required in production)
-- An existing rTorrent with SCGI
+- At least one torrent client: rTorrent (SCGI) and/or qBittorrent / Deluge / Transmission via **Settings → Clients**
 
 ## Quick start (development)
 
@@ -59,9 +55,9 @@ make build
 ./install.sh --non-interactive --user "$USER" --bin ./bin/fleet
 ```
 
-Does **not** install or reconfigure rTorrent. Point `rtorrent.address` in `~/.config/fleet/config.yaml` at your existing socket or TCP SCGI endpoint. Set `rtorrent.download_roots` for erase_data, Files, shares, and media tools.
+Does **not** install or reconfigure your torrent clients. For rTorrent, point `rtorrent.address` in `~/.config/fleet/config.yaml` at your SCGI socket or TCP endpoint and set `rtorrent.download_roots` for erase_data, Files, shares, and media tools. Register other clients under **Settings → Clients**.
 
-See [Install](docs/user/install.md) for systemd, reverse proxy (`FLEET_UI_BASE`), updates, and uninstall.
+See [Install](docs/user/install.md) and [Clients](docs/user/clients.md) for systemd, reverse proxy (`FLEET_UI_BASE`), updates, and uninstall.
 
 ## Tests
 

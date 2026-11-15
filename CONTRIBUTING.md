@@ -12,7 +12,7 @@ Large or cross-cutting changes (new RPC capabilities, auth model, packaging layo
 
 ## Development setup
 
-Requirements: Go 1.22+, Node.js 22+ (frontend build only), an existing rTorrent with SCGI for full UI smoke.
+Requirements: Go 1.22+, Node.js 22+ (frontend build only). Full UI smoke is easiest with an rTorrent SCGI endpoint; gateway kinds (qBittorrent / Deluge / Transmission) are covered under [Clients](docs/user/clients.md).
 
 ```bash
 git clone https://github.com/krate-apps/fleet.git
@@ -42,7 +42,7 @@ Path-mode UI builds: `FLEET_UI_BASE=/your/prefix/ make embed build` ([Reverse pr
 | Features    | Align with the public SDK contracts (`docs/developer/schemas/`, `sdk/`) |
 | Extensions  | Prefer shipping in a dedicated `fleet-ext-*` repo + bucket listing      |
 
-Fleet is a **UI** for rTorrent
+Fleet is a **multi-client UI**, not a BitTorrent engine. Changes that move torrent authority into Fleet SQLite are out of scope for V1.
 
 ## Pull requests
 

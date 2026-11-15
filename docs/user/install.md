@@ -2,11 +2,13 @@
 
 ## Requirements
 
-- An existing **rTorrent** with SCGI (Unix socket or TCP)
 - Linux amd64 (Debian 13 reference)
+- At least one torrent client Fleet can reach:
+  - **rTorrent** with SCGI (Unix socket or TCP) — deepest integration (Files / `download_roots` / erase_data)
+  - and/or **qBittorrent**, **Deluge**, **Transmission** registered under **Settings → Clients**
 - Optional: Node.js 22+ only when building the UI from source
 
-Fleet does **not** install or reconfigure rTorrent.
+Fleet does **not** install or reconfigure your torrent clients.
 
 ## Quick install (from a built binary)
 

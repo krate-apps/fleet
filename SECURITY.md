@@ -29,7 +29,7 @@ We aim to acknowledge reports within a few business days and to ship a fix or mi
 
 ## Hardening checklist (operators)
 
-Fleet is a self-hosted UI in front of rTorrent. Treat the host and reverse proxy as part of the trust boundary.
+Fleet is a self-hosted multi-client BitTorrent UI (rTorrent, qBittorrent, Deluge, Transmission). Treat the host, reverse proxy, and client APIs as part of the trust boundary.
 
 - Bind to loopback by default; put TLS termination in a reverse proxy ([Reverse proxy](docs/user/reverse-proxy.md)).
 - Keep `auth.disable: false` except for local debugging on loopback (Fleet refuses `auth.disable` on non-loopback listen addresses).

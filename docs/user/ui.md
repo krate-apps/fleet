@@ -8,7 +8,8 @@
 
 ## Torrents
 
-- Browse, select, start/stop/hash-check/erase from the main table.
+- The main table merges torrents from every connected client (rTorrent + gateways); rows are keyed as `hash@clientId` — see [Clients](clients.md).
+- Browse, select, start/stop/hash-check/erase from the main table (actions target the row’s client).
 - Add magnets or `.torrent` files from the toolbar, or **drag-and-drop** a `.torrent` / magnet onto the list.
 - Open a torrent for files, trackers, peers (optional country codes when `geoip.database` is set; editable peer notes), and **chunks**.
 - **Download .torrent** fetches the session/tied source; each file row can download the on-disk payload (requires `download_roots`).
