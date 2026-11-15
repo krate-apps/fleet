@@ -61,9 +61,10 @@ func (m *Manager) Roots() []string {
 	return out
 }
 
-// Resolve checks a path is under allowed roots and not a symlink.
+// Resolve checks a path is under allowed roots after symlink evaluation.
 func (m *Manager) Resolve(path string, mustExist bool) (string, os.FileInfo, error) {
-	if len(m.Roots()) == 0 {
+	roots := m.resolvedRoots()
+	if len(roots) == 0 {
 		return "", nil, fmt.Errorf("no download_roots configured; refuse path access")
 	}
 	path = strings.TrimSpace(path)
@@ -75,17 +76,11 @@ func (m *Manager) Resolve(path string, mustExist bool) (string, os.FileInfo, err
 		return "", nil, err
 	}
 	abs = filepath.Clean(abs)
-	if !underRoots(abs, m.Roots()) {
-		return "", nil, fmt.Errorf("path %q is outside allowed download_roots", abs)
-	}
+
 	st, err := os.Lstat(abs)
 	if err != nil {
 		if !mustExist && os.IsNotExist(err) {
-			// Parent must exist and be allowed for create targets.
 			parent := filepath.Dir(abs)
-			if !underRoots(parent, m.Roots()) {
-				return "", nil, fmt.Errorf("path %q is outside allowed download_roots", abs)
-			}
 			pst, err := os.Lstat(parent)
 			if err != nil {
 				return "", nil, err
@@ -93,14 +88,56 @@ func (m *Manager) Resolve(path string, mustExist bool) (string, os.FileInfo, err
 			if pst.Mode()&os.ModeSymlink != 0 || !pst.IsDir() {
 				return "", nil, fmt.Errorf("invalid parent directory")
 			}
-			return abs, nil, nil
+			resolvedParent, err := filepath.EvalSymlinks(parent)
+			if err != nil {
+				return "", nil, fmt.Errorf("resolve parent: %w", err)
+			}
+			if !underRoots(resolvedParent, roots) {
+				return "", nil, fmt.Errorf("path %q is outside allowed download_roots", abs)
+			}
+			candidate := filepath.Join(resolvedParent, filepath.Base(abs))
+			if !underRoots(candidate, roots) {
+				return "", nil, fmt.Errorf("path %q is outside allowed download_roots", abs)
+			}
+			return candidate, nil, nil
 		}
 		return "", nil, err
 	}
 	if st.Mode()&os.ModeSymlink != 0 {
 		return "", nil, fmt.Errorf("refusing symlink path")
 	}
-	return abs, st, nil
+	resolved, err := filepath.EvalSymlinks(abs)
+	if err != nil {
+		return "", nil, fmt.Errorf("resolve path: %w", err)
+	}
+	if !underRoots(resolved, roots) {
+		return "", nil, fmt.Errorf("path %q is outside allowed download_roots", abs)
+	}
+	return resolved, st, nil
+}
+
+func (m *Manager) resolvedRoots() []string {
+	out := make([]string, 0, len(m.AllowedRoots))
+	for _, r := range m.Roots() {
+		resolved, err := evalOrAbs(r)
+		if err != nil {
+			continue
+		}
+		out = append(out, resolved)
+	}
+	return out
+}
+
+func evalOrAbs(path string) (string, error) {
+	abs, err := filepath.Abs(path)
+	if err != nil {
+		return "", err
+	}
+	resolved, err := filepath.EvalSymlinks(abs)
+	if err != nil {
+		return abs, nil
+	}
+	return resolved, nil
 }
 
 func underRoots(abs string, roots []string) bool {
