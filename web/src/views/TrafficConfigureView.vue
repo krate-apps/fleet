@@ -56,7 +56,7 @@ async function loadSettings() {
   const res = await extensionRPC(EXT, "ext.traffic.getSettings", {});
   const r = (res.result ?? {}) as Settings;
   settings.value = {
-    enabled: !!r.enabled,
+    enabled: true,
     intervalMin: typeof r.intervalMin === "number" ? r.intervalMin : 15,
   };
 }
@@ -65,12 +65,12 @@ async function saveSettings() {
   busy.value = true;
   try {
     const res = await extensionRPC(EXT, "ext.traffic.saveSettings", {
-      enabled: settings.value.enabled,
+      enabled: true,
       intervalMin: settings.value.intervalMin,
     });
     const r = (res.result ?? {}) as Settings;
     settings.value = {
-      enabled: !!r.enabled,
+      enabled: true,
       intervalMin: typeof r.intervalMin === "number" ? r.intervalMin : settings.value.intervalMin,
     };
     setNotice("Settings saved");
@@ -195,55 +195,24 @@ onMounted(async () => {
 </script>
 
 <template>
-  <div class="trafic-cfg">
-    <header class="trafic-cfg__head">
-      <h2>{{ t("traffic.title") }}</h2>
-      <p class="trafic-cfg__hint">
-        {{ t("traffic.hint") }}
-      </p>
-    </header>
-
-    <p
-      v-if="notice"
-      class="trafic-cfg__notice"
-      :data-kind="noticeKind"
-    >
-      {{ notice }}
-    </p>
-
-    <section class="trafic-cfg__card">
-      <h3>{{ t("traffic.settings") }}</h3>
-      <label class="trafic-cfg__row">
-        <input
-          v-model="settings.enabled"
-          type="checkbox"
-          :disabled="busy"
-        >
-        {{ t("traffic.enabled") }}
-      </label>
-      <label class="trafic-cfg__row">
-        {{ t("traffic.interval") }}
-        <input
-          v-model.number="settings.intervalMin"
-          class="fleet-control"
-          type="number"
-          min="1"
-          max="60"
-          :disabled="busy"
-        >
-      </label>
-      <div class="trafic-cfg__actions">
+  <div class="fleet-ext-config">
+    <aside class="fleet-ext-config-side">
+      <header class="fleet-ext-header">
+        <p class="fleet-ext-eyebrow">
+          {{ t("traffic.title") }}
+        </p>
+        <h2>{{ t("traffic.title") }}</h2>
+        <p class="fleet-ext-note">
+          {{ t("traffic.hint") }}
+        </p>
+        <p class="fleet-ext-tip">
+          {{ t("extensions.configTip") }}
+        </p>
+      </header>
+      <div class="fleet-ext-actions">
         <button
           type="button"
-          class="btn"
-          :disabled="busy"
-          @click="saveSettings"
-        >
-          {{ t("traffic.save") }}
-        </button>
-        <button
-          type="button"
-          class="btn"
+          class="fleet-btn-primary"
           :disabled="busy"
           @click="collectNow"
         >
@@ -251,84 +220,7 @@ onMounted(async () => {
         </button>
         <button
           type="button"
-          class="btn btn--danger"
-          :disabled="busy"
-          @click="clearStats"
-        >
-          {{ t("traffic.clear") }}
-        </button>
-      </div>
-    </section>
-
-    <section class="trafic-cfg__card">
-      <h3>{{ t("traffic.series") }}</h3>
-      <div class="trafic-cfg__actions">
-        <button
-          type="button"
-          class="btn"
-          :class="{ 'btn--active': mode === 'day' }"
-          :disabled="busy"
-          @click="loadSeries('day')"
-        >
-          {{ t("traffic.day") }}
-        </button>
-        <button
-          type="button"
-          class="btn"
-          :class="{ 'btn--active': mode === 'week' }"
-          :disabled="busy"
-          @click="loadSeries('week')"
-        >
-          {{ t("traffic.week") }}
-        </button>
-        <button
-          type="button"
-          class="btn"
-          :class="{ 'btn--active': mode === 'month' }"
-          :disabled="busy"
-          @click="loadSeries('month')"
-        >
-          {{ t("traffic.month") }}
-        </button>
-        <button
-          type="button"
-          class="btn"
-          :class="{ 'btn--active': mode === 'year' }"
-          :disabled="busy"
-          @click="loadSeries('year')"
-        >
-          {{ t("traffic.year") }}
-        </button>
-      </div>
-      <div class="trafic-cfg__table-wrap">
-        <table class="trafic-cfg__table">
-          <thead>
-            <tr>
-              <th>{{ t("traffic.bucket") }}</th>
-              <th>{{ t("traffic.up") }}</th>
-              <th>{{ t("traffic.down") }}</th>
-            </tr>
-          </thead>
-          <tbody>
-            <tr
-              v-for="row in seriesRows()"
-              :key="row.label"
-            >
-              <td>{{ row.label }}</td>
-              <td>{{ fmtBytes(row.up) }}</td>
-              <td>{{ fmtBytes(row.down) }}</td>
-            </tr>
-          </tbody>
-        </table>
-      </div>
-    </section>
-
-    <section class="trafic-cfg__card">
-      <h3>{{ t("traffic.trackers") }}</h3>
-      <div class="trafic-cfg__actions">
-        <button
-          type="button"
-          class="btn"
+          class="fleet-btn"
           :disabled="busy"
           @click="loadTrackers"
         >
@@ -336,7 +228,7 @@ onMounted(async () => {
         </button>
         <button
           type="button"
-          class="btn"
+          class="fleet-btn"
           :disabled="busy"
           @click="exportStats('json')"
         >
@@ -344,131 +236,179 @@ onMounted(async () => {
         </button>
         <button
           type="button"
-          class="btn"
+          class="fleet-btn"
           :disabled="busy"
           @click="exportStats('csv')"
         >
           {{ t("traffic.exportCsv") }}
         </button>
+        <button
+          type="button"
+          class="fleet-btn fleet-btn-danger"
+          :disabled="busy"
+          @click="clearStats"
+        >
+          {{ t("traffic.clear") }}
+        </button>
       </div>
-      <div class="trafic-cfg__table-wrap">
-        <table class="trafic-cfg__table">
-          <thead>
-            <tr>
-              <th>{{ t("traffic.host") }}</th>
-              <th>{{ t("traffic.up") }}</th>
-              <th>{{ t("traffic.down") }}</th>
-            </tr>
-          </thead>
-          <tbody>
-            <tr v-if="!trackers.length">
-              <td colspan="3">
-                {{ t("traffic.noTrackers") }}
-              </td>
-            </tr>
-            <tr
-              v-for="row in trackers"
-              :key="row.host"
+    </aside>
+
+    <div class="fleet-ext-config-main">
+      <div
+        v-if="notice"
+        class="fleet-banner"
+        :data-kind="noticeKind"
+      >
+        {{ notice }}
+      </div>
+
+      <form
+        class="fleet-decl-form"
+        @submit.prevent="saveSettings"
+      >
+        <header class="fleet-decl-form-head">
+          <h3 class="fleet-decl-form-title">
+            {{ t("traffic.settings") }}
+          </h3>
+        </header>
+        <div class="fleet-decl-fields">
+          <label class="fleet-decl-field">
+            <span class="fleet-decl-label">{{ t("traffic.interval") }}</span>
+            <input
+              v-model.number="settings.intervalMin"
+              class="fleet-decl-control"
+              type="number"
+              min="1"
+              max="60"
+              :disabled="busy"
             >
-              <td>{{ row.host }}</td>
-              <td>{{ fmtBytes(row.up) }}</td>
-              <td>{{ fmtBytes(row.down) }}</td>
-            </tr>
-          </tbody>
-        </table>
-      </div>
-      <pre
-        v-if="exportPreview"
-        class="trafic-cfg__export"
-      >{{ exportPreview }}</pre>
-    </section>
+          </label>
+        </div>
+        <button
+          type="submit"
+          class="fleet-btn-primary fleet-form-apply"
+          :disabled="busy"
+        >
+          {{ t("extensions.apply") }}
+        </button>
+      </form>
+
+      <section class="fleet-obs-report">
+        <h4>{{ t("traffic.series") }}</h4>
+        <div class="fleet-ext-actions trafic-mode-actions">
+          <button
+            type="button"
+            class="fleet-btn"
+            :aria-pressed="mode === 'day'"
+            :disabled="busy"
+            @click="loadSeries('day')"
+          >
+            {{ t("traffic.day") }}
+          </button>
+          <button
+            type="button"
+            class="fleet-btn"
+            :aria-pressed="mode === 'week'"
+            :disabled="busy"
+            @click="loadSeries('week')"
+          >
+            {{ t("traffic.week") }}
+          </button>
+          <button
+            type="button"
+            class="fleet-btn"
+            :aria-pressed="mode === 'month'"
+            :disabled="busy"
+            @click="loadSeries('month')"
+          >
+            {{ t("traffic.month") }}
+          </button>
+          <button
+            type="button"
+            class="fleet-btn"
+            :aria-pressed="mode === 'year'"
+            :disabled="busy"
+            @click="loadSeries('year')"
+          >
+            {{ t("traffic.year") }}
+          </button>
+        </div>
+        <div class="trafic-table-wrap">
+          <table class="fleet-ext-table">
+            <thead>
+              <tr>
+                <th>{{ t("traffic.bucket") }}</th>
+                <th>{{ t("traffic.up") }}</th>
+                <th>{{ t("traffic.down") }}</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr
+                v-for="row in seriesRows()"
+                :key="row.label"
+              >
+                <td>{{ row.label }}</td>
+                <td>{{ fmtBytes(row.up) }}</td>
+                <td>{{ fmtBytes(row.down) }}</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </section>
+
+      <section class="fleet-obs-report">
+        <h4>{{ t("traffic.trackers") }}</h4>
+        <div class="trafic-table-wrap">
+          <table class="fleet-ext-table">
+            <thead>
+              <tr>
+                <th>{{ t("traffic.host") }}</th>
+                <th>{{ t("traffic.up") }}</th>
+                <th>{{ t("traffic.down") }}</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr v-if="!trackers.length">
+                <td colspan="3">
+                  {{ t("traffic.noTrackers") }}
+                </td>
+              </tr>
+              <tr
+                v-for="row in trackers"
+                :key="row.host"
+              >
+                <td>{{ row.host }}</td>
+                <td>{{ fmtBytes(row.up) }}</td>
+                <td>{{ fmtBytes(row.down) }}</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+        <pre
+          v-if="exportPreview"
+          class="trafic-export"
+        >{{ exportPreview }}</pre>
+      </section>
+    </div>
   </div>
 </template>
 
 <style scoped>
-.trafic-cfg {
-  display: flex;
-  flex-direction: column;
-  gap: 1rem;
-  padding: 0.25rem 0 1.5rem;
-  max-width: 56rem;
-}
-.trafic-cfg__head h2 {
-  margin: 0 0 0.25rem;
-  font-size: 1.15rem;
-}
-.trafic-cfg__hint {
-  margin: 0;
-  opacity: 0.75;
-  font-size: 0.9rem;
-}
-.trafic-cfg__notice {
-  margin: 0;
-  padding: 0.5rem 0.75rem;
-  border-radius: 4px;
-  background: color-mix(in srgb, var(--fleet-accent, #3d7) 18%, transparent);
-}
-.trafic-cfg__notice[data-kind="error"] {
-  background: color-mix(in srgb, #c44 22%, transparent);
-}
-.trafic-cfg__card {
-  border: 1px solid color-mix(in srgb, currentColor 16%, transparent);
-  border-radius: 6px;
-  padding: 0.75rem 1rem;
-}
-.trafic-cfg__card h3 {
-  margin: 0 0 0.75rem;
-  font-size: 1rem;
-}
-.trafic-cfg__row {
-  display: flex;
-  align-items: center;
-  gap: 0.5rem;
+.trafic-mode-actions {
   margin-bottom: 0.5rem;
 }
-.trafic-cfg__row input[type="number"] {
-  width: 5rem;
+
+.trafic-mode-actions .fleet-btn[aria-pressed="true"] {
+  border-color: var(--fleet-primary);
+  color: var(--fleet-primary-text, var(--fleet-foreground));
 }
-.trafic-cfg__actions {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 0.4rem;
-  margin-bottom: 0.75rem;
-}
-.btn {
-  border: 1px solid color-mix(in srgb, currentColor 25%, transparent);
-  background: transparent;
-  color: inherit;
-  border-radius: 4px;
-  padding: 0.35rem 0.7rem;
-  cursor: pointer;
-}
-.btn:disabled {
-  opacity: 0.5;
-  cursor: default;
-}
-.btn--active {
-  border-color: var(--fleet-accent, #3d7);
-}
-.btn--danger {
-  border-color: #c44;
-}
-.trafic-cfg__table-wrap {
+
+.trafic-table-wrap {
   overflow: auto;
   max-height: 18rem;
 }
-.trafic-cfg__table {
-  width: 100%;
-  border-collapse: collapse;
-  font-size: 0.9rem;
-}
-.trafic-cfg__table th,
-.trafic-cfg__table td {
-  text-align: left;
-  padding: 0.3rem 0.45rem;
-  border-bottom: 1px solid color-mix(in srgb, currentColor 12%, transparent);
-}
-.trafic-cfg__export {
+
+.trafic-export {
   margin: 0.75rem 0 0;
   padding: 0.5rem;
   max-height: 12rem;
