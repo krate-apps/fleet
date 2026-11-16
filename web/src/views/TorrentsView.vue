@@ -78,10 +78,9 @@ type RatioColorSettings = {
   enabled: boolean;
   lowMax: number;
   midMax: number;
-  lowColor: string;
-  midColor: string;
-  highColor: string;
 };
+
+type RatioBand = "low" | "mid" | "high";
 
 const PREFS_KEY = "fleet.torrentPrefs.v1";
 const DETAILS_HEIGHT_KEY = "fleet.detailsHeight.v1";
@@ -465,13 +464,13 @@ watch(
   { immediate: true },
 );
 
-function ratioRowStyle(ratio: number): Record<string, string> | undefined {
+/** Band from extension thresholds; colors come from theme `--fleet-ratio-*`. */
+function ratioBand(ratio: number): RatioBand | undefined {
   const cfg = ratioColors.value;
   if (!cfg?.enabled) return undefined;
-  let bg = cfg.highColor;
-  if (ratio < cfg.lowMax) bg = cfg.lowColor;
-  else if (ratio < cfg.midMax) bg = cfg.midColor;
-  return { background: bg };
+  if (ratio < cfg.lowMax) return "low";
+  if (ratio < cfg.midMax) return "mid";
+  return "high";
 }
 
 watch(
@@ -594,7 +593,30 @@ function onDragLeave(ev: DragEvent) {
   dragActive.value = false;
 }
 
+function focusTorrentSearch() {
+  const el = document.querySelector<HTMLInputElement>(".fleet-search input");
+  if (!el) return;
+  el.focus();
+  el.select();
+}
+
+function isSearchHotkey(ev: KeyboardEvent): boolean {
+  return (
+    (ev.ctrlKey || ev.metaKey) &&
+    !ev.altKey &&
+    !ev.shiftKey &&
+    (ev.code === "KeyK" || ev.key.toLowerCase() === "k")
+  );
+}
+
 function onGlobalKey(ev: KeyboardEvent) {
+  // Ctrl/Cmd+K focuses search (AppShell handles the same in capture; keep as fallback).
+  if (isSearchHotkey(ev) && !anyModalOpen()) {
+    ev.preventDefault();
+    ev.stopImmediatePropagation();
+    focusTorrentSearch();
+    return;
+  }
   if (isTypingTarget(ev.target) || showAdd.value || showCreate.value || showMenu.value || anyModalOpen()) return;
   if (ev.key === "Escape" && detailsSheet.value && focusHash.value) {
     ev.preventDefault();
@@ -609,6 +631,8 @@ function onGlobalKey(ev: KeyboardEvent) {
       break;
     case "ArrowUp":
     case "k":
+      // Never treat Ctrl/Cmd+K as vim-style move-up (that opens the details panel).
+      if (ev.ctrlKey || ev.metaKey || ev.altKey) break;
       ev.preventDefault();
       moveFocus(-1);
       break;
@@ -637,7 +661,7 @@ function onGlobalKey(ev: KeyboardEvent) {
       break;
     case "/":
       ev.preventDefault();
-      document.querySelector<HTMLInputElement>(".fleet-search input")?.focus();
+      focusTorrentSearch();
       break;
     default:
       break;
@@ -1406,6 +1430,8 @@ function torrentKey(t: Torrent) {
     :down-rate="totalDown"
     :up-rate="totalUp"
     :torrent-count="torrents.length"
+    :downloading-count="counts.downloading"
+    :seeding-count="counts.seeding"
     :clients-connected="engine?.clientsConnected ?? (engineConnected ? 1 : 0)"
     :clients-total="engine?.clientsTotal ?? (engineConnected ? 1 : 0)"
     :client-problems="engine?.problems ?? []"
@@ -1579,7 +1605,7 @@ function torrentKey(t: Torrent) {
             <div
               class="fleet-vrow"
               :data-selected="isRowSelected(torrentRowId(row)) || focusHash === torrentRowId(row)"
-              :style="ratioRowStyle(row.ratio)"
+              :data-ratio-band="ratioBand(row.ratio)"
               @click="onRowClick(row, $event)"
               @contextmenu="openTorrentContextMenu($event, torrentRowId(row))"
             >
@@ -1642,7 +1668,11 @@ function torrentKey(t: Torrent) {
                     <td v-if="!phoneNarrow">
                       {{ formatBytes(row.sizeBytes) }}
                     </td>
-                    <td v-if="!phoneNarrow">
+                    <td
+                      v-if="!phoneNarrow"
+                      class="fleet-ratio-cell"
+                      :data-ratio-band="ratioBand(row.ratio)"
+                    >
                       {{ row.ratio.toFixed(3) }}
                     </td>
                     <td v-if="!phoneNarrow">

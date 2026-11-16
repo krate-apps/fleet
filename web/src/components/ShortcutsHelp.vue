@@ -9,7 +9,7 @@ const rows: { keys: string; action: MessageKey }[] = [
   { keys: "k / ↑", action: "shortcuts.moveUp" },
   { keys: "Space", action: "shortcuts.toggleSelect" },
   { keys: "a", action: "shortcuts.add" },
-  { keys: "/", action: "shortcuts.search" },
+  { keys: "/ · Ctrl+K", action: "shortcuts.search" },
   { keys: "s", action: "shortcuts.start" },
   { keys: "p", action: "shortcuts.pause" },
   { keys: "Delete", action: "shortcuts.remove" },
