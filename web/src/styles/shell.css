@@ -1800,6 +1800,11 @@ textarea.fleet-decl-control,
   border-radius: 0.25rem;
 }
 
+.fleet-ext-badge[data-kind="ok"] {
+  border-color: color-mix(in srgb, var(--fleet-accent, #3ecf8e) 55%, var(--fleet-border));
+  color: var(--fleet-accent, #3ecf8e);
+}
+
 .fleet-ext-badge[data-kind="update"] {
   color: color-mix(in srgb, #b45309 80%, var(--fleet-foreground));
   border-color: color-mix(in srgb, #b45309 45%, var(--fleet-border));

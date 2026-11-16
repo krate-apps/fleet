@@ -9,6 +9,7 @@ import {
   fetchAuthStatus,
   fetchAvailableUpdates,
   fetchCapabilities,
+  emptyToolsPaths,
   fetchFeeds,
   fetchFeedsSettings,
   fetchGateways,
@@ -16,12 +17,14 @@ import {
   fetchInstalledThemePacks,
   fetchSystemStatus,
   fetchThemesCatalog,
+  fetchToolsSettings,
   fetchUpdates,
   fetchVersion,
   formatBytes,
   installThemeFromBucket,
   prepareUpdate,
   saveFeedsSettings,
+  saveToolsSettings,
   setUpdateChannel,
   switchInstalledRelease,
   withBase,
@@ -36,6 +39,8 @@ import {
   type SystemDisk,
   type SystemLoad,
   type ThemeCatalogEntry,
+  type ToolStatusEntry,
+  type ToolsPaths,
   type UpdateStatus,
   type VersionResponse,
 } from "@/api/client";
@@ -59,7 +64,18 @@ type SettingsSection =
   | "clients"
   | "logs"
   | "feeds"
+  | "tools"
   | "updates";
+
+const TOOL_KEYS = [
+  "mktorrent",
+  "dumptorrent",
+  "mediainfo",
+  "ffmpeg",
+  "sox",
+  "unrar",
+  "rclone",
+] as const satisfies readonly (keyof ToolsPaths)[];
 
 const router = useRouter();
 const { themeId, themes, setTheme } = useTheme();
@@ -144,6 +160,10 @@ const feedsSettings = ref<FeedsSettings>({
   pathPrefix: "",
 });
 const feedsNotice = ref("");
+const toolsPaths = ref<ToolsPaths>(emptyToolsPaths());
+const toolsYaml = ref<ToolsPaths>(emptyToolsPaths());
+const toolsStatus = ref<Record<string, ToolStatusEntry>>({});
+const toolsNotice = ref("");
 const user = ref<AuthUser | null>(null);
 const authEnabled = ref(false);
 const updates = ref<UpdateStatus | null>(null);
@@ -169,6 +189,7 @@ const navItems = computed(() => {
   if (feedModes.value.length) {
     items.push({ id: "feeds", label: "settings.nav.feeds" });
   }
+  items.push({ id: "tools", label: "settings.nav.tools" });
   items.push({ id: "updates", label: "settings.nav.updates" });
   return items;
 });
@@ -279,6 +300,13 @@ onMounted(async () => {
     } catch {
       feedModes.value = [];
     }
+    try {
+      await loadToolsForm();
+    } catch {
+      toolsPaths.value = emptyToolsPaths();
+      toolsYaml.value = emptyToolsPaths();
+      toolsStatus.value = {};
+    }
     const st = await fetchAuthStatus();
     authEnabled.value = st.enabled;
     if (st.enabled && !st.needsSetup) {
@@ -341,6 +369,58 @@ async function refreshAvailable() {
   error.value = "";
   try {
     await loadUpdateLists();
+  } catch (e) {
+    error.value = e instanceof Error ? e.message : String(e);
+  } finally {
+    busy.value = false;
+  }
+}
+
+async function loadToolsForm() {
+  const res = await fetchToolsSettings();
+  toolsPaths.value = { ...emptyToolsPaths(), ...res.paths };
+  toolsYaml.value = { ...emptyToolsPaths(), ...res.yaml };
+  toolsStatus.value = res.status ?? {};
+}
+
+function toolLabelKey(key: keyof ToolsPaths): MessageKey {
+  return `settings.tools.${key}` as MessageKey;
+}
+
+function toolPlaceholder(key: keyof ToolsPaths): string {
+  const yamlPath = (toolsYaml.value[key] || "").trim();
+  if (yamlPath) {
+    return t("settings.tools.yamlHint", { path: yamlPath });
+  }
+  return key;
+}
+
+function toolStatusFor(key: keyof ToolsPaths): ToolStatusEntry {
+  return toolsStatus.value[key] ?? {};
+}
+
+async function saveToolsForm() {
+  busy.value = true;
+  toolsNotice.value = "";
+  error.value = "";
+  try {
+    const res = await saveToolsSettings({
+      mktorrent: toolsPaths.value.mktorrent.trim(),
+      dumptorrent: toolsPaths.value.dumptorrent.trim(),
+      mediainfo: toolsPaths.value.mediainfo.trim(),
+      ffmpeg: toolsPaths.value.ffmpeg.trim(),
+      sox: toolsPaths.value.sox.trim(),
+      unrar: toolsPaths.value.unrar.trim(),
+      rclone: toolsPaths.value.rclone.trim(),
+    });
+    toolsPaths.value = { ...emptyToolsPaths(), ...res.paths };
+    toolsYaml.value = { ...emptyToolsPaths(), ...res.yaml };
+    toolsStatus.value = res.status ?? {};
+    const parts = [t("settings.tools.saved")];
+    if (res.reloaded?.length) {
+      parts.push(t("settings.tools.reloaded", { count: String(res.reloaded.length) }));
+    }
+    toolsNotice.value = parts.join(" — ");
   } catch (e) {
     error.value = e instanceof Error ? e.message : String(e);
   } finally {
@@ -853,7 +933,61 @@ async function runSwitch(version: string) {
       </section>
 
       <section
-        v-else
+        v-else-if="section === 'tools'"
+        class="fleet-settings-section"
+      >
+        <header class="fleet-settings-section-head">
+          <h3>{{ t("settings.nav.tools") }}</h3>
+          <p>{{ t("settings.tools.help") }}</p>
+        </header>
+
+        <form
+          class="fleet-settings-tools-form"
+          @submit.prevent="saveToolsForm"
+        >
+          <label
+            v-for="key in TOOL_KEYS"
+            :key="key"
+            class="fleet-settings-tool-row"
+          >
+            <span class="fleet-settings-tool-label">
+              {{ t(toolLabelKey(key)) }}
+              <span
+                class="fleet-ext-badge"
+                :data-kind="toolStatusFor(key).available ? 'ok' : 'update'"
+              >{{ toolStatusFor(key).available ? t("settings.tools.available") : t("settings.tools.missing") }}</span>
+            </span>
+            <input
+              v-model="toolsPaths[key]"
+              class="fleet-control"
+              type="text"
+              :placeholder="toolPlaceholder(key)"
+              autocomplete="off"
+              spellcheck="false"
+            >
+            <span
+              v-if="toolStatusFor(key).resolved"
+              class="fleet-settings-tool-hint"
+            >{{ t("settings.tools.resolved", { path: toolStatusFor(key).resolved || "" }) }}</span>
+          </label>
+          <button
+            type="submit"
+            class="fleet-btn-primary"
+            :disabled="busy"
+          >
+            {{ t("settings.tools.save") }}
+          </button>
+          <p
+            v-if="toolsNotice"
+            class="fleet-ext-note"
+          >
+            {{ toolsNotice }}
+          </p>
+        </form>
+      </section>
+
+      <section
+        v-else-if="section === 'updates'"
         class="fleet-settings-section"
       >
         <header class="fleet-settings-section-head">
@@ -1239,6 +1373,35 @@ async function runSwitch(version: string) {
 
 .fleet-about-client[data-ok="false"] .fleet-about-client-detail {
   color: var(--fleet-status-bad, var(--fleet-destructive-text, #b42318));
+}
+
+.fleet-settings-tools-form {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+  max-width: 36rem;
+}
+
+.fleet-settings-tool-row {
+  display: flex;
+  flex-direction: column;
+  gap: 0.3rem;
+  font-size: 0.82rem;
+  color: var(--fleet-fg-muted);
+}
+
+.fleet-settings-tool-label {
+  display: flex;
+  align-items: center;
+  gap: 0.45rem;
+  color: var(--fleet-foreground);
+  font-weight: 550;
+}
+
+.fleet-settings-tool-hint {
+  font-size: 0.75rem;
+  color: var(--fleet-fg-muted);
+  word-break: break-all;
 }
 
 .fleet-settings-feeds-form {

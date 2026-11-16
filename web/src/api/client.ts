@@ -352,6 +352,52 @@ export function saveFeedsSettings(settings: FeedsSettings): Promise<FeedsSetting
   return putJSON<FeedsSettings>("/api/v1/settings/feeds", settings);
 }
 
+export type ToolsPaths = {
+  mktorrent: string;
+  dumptorrent: string;
+  mediainfo: string;
+  ffmpeg: string;
+  sox: string;
+  unrar: string;
+  rclone: string;
+};
+
+export type ToolStatusEntry = {
+  path?: string;
+  resolved?: string;
+  available?: boolean;
+  message?: string;
+};
+
+export type ToolsSettings = {
+  paths: ToolsPaths;
+  yaml: ToolsPaths;
+  overrides: ToolsPaths;
+  status: Record<string, ToolStatusEntry>;
+  reloaded?: string[];
+  reloadFailed?: Record<string, string>;
+};
+
+export function emptyToolsPaths(): ToolsPaths {
+  return {
+    mktorrent: "",
+    dumptorrent: "",
+    mediainfo: "",
+    ffmpeg: "",
+    sox: "",
+    unrar: "",
+    rclone: "",
+  };
+}
+
+export function fetchToolsSettings() {
+  return getJSON<ToolsSettings>("/api/v1/settings/tools");
+}
+
+export function saveToolsSettings(paths: ToolsPaths) {
+  return putJSON<ToolsSettings>("/api/v1/settings/tools", { paths });
+}
+
 export function postTorrentActions(action: string, hashes: string[]) {
   return postJSON<{ action: string; results: ActionResult[] }>("/api/v1/torrents/actions", {
     action,
