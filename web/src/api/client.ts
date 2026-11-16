@@ -555,6 +555,15 @@ export function deactivateExtension(id: string) {
   return postJSON<ExtensionRecord>(`/api/v1/extensions/${encodeURIComponent(id)}/deactivate`, {});
 }
 
+export function reloadExtensionWorkers() {
+  return postJSON<{
+    ok: boolean;
+    reloaded?: string[];
+    failed?: Record<string, string>;
+    count?: number;
+  }>("/api/v1/extensions/reload-workers", {});
+}
+
 export function consentExtension(id: string) {
   return postJSON<{ ok: boolean; extension?: ExtensionRecord }>(
     `/api/v1/extensions/${encodeURIComponent(id)}/consent`,

@@ -8,6 +8,7 @@ import {
   installFromArchive,
   installFromBucket,
   installFromURL,
+  reloadExtensionWorkers,
   setBucketEnabled,
   uninstallExtension,
   type BucketRecord,
@@ -38,6 +39,7 @@ const { extensionsFilter } = useShellModals();
 const { extensions, loading, error, refresh, activate, deactivate } = useExtensionUI();
 const busyId = ref("");
 const notice = ref("");
+const reloadingWorkers = ref(false);
 const listFilter = ref(extensionsFilter.value || "");
 const buckets = ref<BucketRecord[]>([]);
 const catalog = ref<CatalogEntry[]>([]);
@@ -304,6 +306,35 @@ async function refreshAll() {
   await loadBuckets();
 }
 
+async function reloadWorkers() {
+  reloadingWorkers.value = true;
+  notice.value = "";
+  try {
+    const res = await reloadExtensionWorkers();
+    const failed = res.failed ?? {};
+    const failIds = Object.keys(failed);
+    const count = res.count ?? res.reloaded?.length ?? 0;
+    if (failIds.length) {
+      const detail = failIds
+        .slice(0, 5)
+        .map((id) => `${id}: ${failed[id]}`)
+        .join("; ");
+      notice.value = t("extensions.reloadWorkersPartial", {
+        ok: count,
+        fail: failIds.length,
+        detail,
+      });
+    } else {
+      notice.value = t("extensions.reloadWorkersDone", { count });
+    }
+    await refresh(true);
+  } catch (e) {
+    notice.value = e instanceof Error ? e.message : String(e);
+  } finally {
+    reloadingWorkers.value = false;
+  }
+}
+
 onMounted(() => {
   syncConfigureFromQuery();
   void refreshAll();
@@ -314,11 +345,13 @@ watch(
   () => syncConfigureFromQuery(),
 );
 
-const refreshing = computed(() => loading.value || bucketBusy.value);
+const refreshing = computed(() => loading.value || bucketBusy.value || reloadingWorkers.value);
 
 defineExpose({
   refreshAll,
+  reloadWorkers,
   refreshing,
+  reloadingWorkers,
 });
 </script>
 

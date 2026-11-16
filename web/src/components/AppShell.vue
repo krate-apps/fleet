@@ -25,6 +25,8 @@ const props = defineProps<{
   downRate?: number;
   upRate?: number;
   torrentCount?: number;
+  downloadingCount?: number;
+  seedingCount?: number;
   clientsConnected?: number;
   clientsTotal?: number;
   clientProblems?: ClientProblem[];
@@ -58,9 +60,11 @@ const sidebarCollapsed = ref(false);
 const mobileNavOpen = ref(false);
 const narrowViewport = ref(false);
 const search = ref(props.initialSearch ?? "");
+const searchInputRef = ref<HTMLInputElement | null>(null);
 const sidebarRef = ref<HTMLElement | null>(null);
 const extensionsPanel = ref<{
   refreshAll: () => Promise<void>;
+  reloadWorkers: () => Promise<void>;
   refreshing: boolean;
 } | null>(null);
 const MOBILE_NAV_MQ = "(max-width: 900px)";
@@ -138,16 +142,57 @@ const problemsTitle = computed(() =>
     .map((p) => `${p.name}${p.message ? `: ${p.message}` : ""}`)
     .join("\n"),
 );
+const primaryDisk = computed(() => disks.value[0] ?? null);
 const diskLabel = computed(() => {
-  const d = disks.value[0];
+  const d = primaryDisk.value;
   if (!d) return "";
-  return t("disk.free", { size: formatBytes(d.available) });
+  const pct = Math.round(d.usedPct);
+  return t("disk.status", { size: formatBytes(d.available), pct });
+});
+const diskClass = computed(() => {
+  const d = primaryDisk.value;
+  if (!d) return "";
+  if (d.usedPct >= 95) return "bad";
+  if (d.usedPct >= 85) return "warn";
+  return "";
+});
+const diskTitle = computed(() => {
+  const d = primaryDisk.value;
+  if (!d) return "";
+  return t("disk.detail", {
+    path: d.path,
+    free: formatBytes(d.available),
+    used: formatBytes(d.used),
+    total: formatBytes(d.total),
+    pct: Math.round(d.usedPct),
+  });
 });
 const loadLabel = computed(() => {
   if (!load.value) return "";
   return t("load.label", { value: load.value.load1.toFixed(2) });
 });
-const torrentsText = computed(() => t("status.torrents", { n: props.torrentCount ?? 0 }));
+const loadTitle = computed(() => {
+  const l = load.value;
+  if (!l) return "";
+  const parts = [
+    t("load.detail", {
+      load1: l.load1.toFixed(2),
+      load5: l.load5.toFixed(2),
+      load15: l.load15.toFixed(2),
+    }),
+  ];
+  if (l.procs) parts.push(t("load.procs", { procs: l.procs }));
+  return parts.join(" · ");
+});
+const torrentsText = computed(() => {
+  const n = props.torrentCount ?? 0;
+  const down = props.downloadingCount;
+  const seed = props.seedingCount;
+  if (down == null || seed == null) {
+    return t("status.torrents", { n });
+  }
+  return t("status.torrentsActivity", { n, down, up: seed });
+});
 
 function toggleSidebar() {
   if (isMobileNav()) {
@@ -207,10 +252,34 @@ function isTypingTarget(target: EventTarget | null): boolean {
   return tag === "INPUT" || tag === "TEXTAREA" || tag === "SELECT" || el.isContentEditable;
 }
 
+function focusShellSearch() {
+  const el = searchInputRef.value ?? document.querySelector<HTMLInputElement>(".fleet-search input");
+  if (!el) return;
+  el.focus();
+  el.select();
+}
+
+function isSearchHotkey(ev: KeyboardEvent): boolean {
+  // Prefer ev.code (physical KeyK) so layout / browser quirks don't miss Ctrl+K.
+  return (
+    (ev.ctrlKey || ev.metaKey) &&
+    !ev.altKey &&
+    !ev.shiftKey &&
+    (ev.code === "KeyK" || ev.key.toLowerCase() === "k")
+  );
+}
+
 function onShellKeydown(ev: KeyboardEvent) {
   if (ev.key === "Escape" && mobileNavOpen.value) {
     ev.preventDefault();
     closeMobileNav();
+    return;
+  }
+  // Ctrl/Cmd+K → focus torrent search (capture phase also used; beats browser omnibox + bare "k").
+  if (isSearchHotkey(ev) && !anyModalOpen()) {
+    ev.preventDefault();
+    ev.stopImmediatePropagation();
+    focusShellSearch();
     return;
   }
   // PD-UX-12: "?" opens shortcuts help on desktop; ignored while typing or when another modal is open.
@@ -225,12 +294,13 @@ onMounted(() => {
   mobileMq = window.matchMedia(MOBILE_NAV_MQ);
   syncNarrowViewport(mobileMq.matches);
   mobileMq.addEventListener("change", onMobileMqChange);
-  window.addEventListener("keydown", onShellKeydown);
+  // Capture: run before TorrentsView's "k" = moveFocus, and before Chrome's Ctrl+K omnibox.
+  window.addEventListener("keydown", onShellKeydown, true);
 });
 
 onBeforeUnmount(() => {
   mobileMq?.removeEventListener("change", onMobileMqChange);
-  window.removeEventListener("keydown", onShellKeydown);
+  window.removeEventListener("keydown", onShellKeydown, true);
 });
 
 const sidebarAriaHidden = computed(
@@ -387,9 +457,11 @@ function onSearchInput(ev: Event) {
 
         <label class="fleet-search">
           <input
+            ref="searchInputRef"
             :value="search"
             type="search"
             :placeholder="t('search.placeholder')"
+            autocomplete="off"
             @input="onSearchInput"
           >
         </label>
@@ -488,13 +560,14 @@ function onSearchInput(ev: Event) {
       <span
         v-if="diskLabel"
         class="fleet-statusbar-disk"
+        :class="diskClass"
+        :title="diskTitle"
       >{{ diskLabel }}</span>
       <span
         v-if="loadLabel"
         class="fleet-statusbar-load"
+        :title="loadTitle"
       >{{ loadLabel }}</span>
-      <span class="fleet-statusbar-rates">↓ {{ downRateLabel }}</span>
-      <span class="fleet-statusbar-rates">↑ {{ upRateLabel }}</span>
     </footer>
 
     <Modal
@@ -504,6 +577,14 @@ function onSearchInput(ev: Event) {
       @close="closeExtensions"
     >
       <template #actions>
+        <button
+          type="button"
+          class="fleet-btn"
+          :disabled="extensionsPanel?.refreshing"
+          @click="extensionsPanel?.reloadWorkers()"
+        >
+          {{ t("extensions.reloadWorkers") }}
+        </button>
         <button
           type="button"
           class="fleet-btn"
