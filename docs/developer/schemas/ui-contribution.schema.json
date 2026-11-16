@@ -100,6 +100,13 @@
                 "required": { "type": "boolean" },
                 "help": { "type": "string", "minLength": 1 },
                 "placeholder": { "type": "string", "minLength": 1 },
+                "step": {
+                  "description": "HTML number input step. Use \"any\" or a positive number (e.g. 0.01) so decimals are allowed; integers remain valid.",
+                  "oneOf": [
+                    { "type": "number", "exclusiveMinimum": 0 },
+                    { "const": "any" }
+                  ]
+                },
                 "advanced": { "type": "boolean" },
                 "rows": { "type": "integer", "minimum": 2, "maximum": 40 },
                 "options": {

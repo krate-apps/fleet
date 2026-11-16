@@ -53,7 +53,13 @@ watch(
 );
 
 function isWide(kind: string): boolean {
-  return kind === "text" || kind === "url" || kind === "textarea";
+  // Booleans (Enabled, …) always span the full row so paired fields stay aligned on the next line.
+  return kind === "text" || kind === "url" || kind === "textarea" || kind === "boolean";
+}
+
+/** Default `any` so ratio thresholds and similar fields accept decimals (and integers). */
+function numberStep(field: { step?: number | "any" }): number | "any" {
+  return field.step ?? "any";
 }
 
 function helpLooksLikeExample(help: string): boolean {
@@ -112,6 +118,7 @@ function onSubmit() {
             v-model.number="values[field.name]"
             class="fleet-decl-control"
             type="number"
+            :step="numberStep(field)"
             :placeholder="field.placeholder"
             :required="field.required"
           >
@@ -198,6 +205,7 @@ function onSubmit() {
               v-model.number="values[field.name]"
               class="fleet-decl-control"
               type="number"
+              :step="numberStep(field)"
               :placeholder="field.placeholder"
               :required="field.required"
             >
@@ -257,9 +265,12 @@ function onSubmit() {
       </div>
     </details>
 
+    <!-- Optional chrome between fields and Apply (e.g. Editor / Expert DSL). -->
+    <slot name="before-submit" />
+
     <button
       type="submit"
-      class="fleet-btn-primary"
+      class="fleet-btn-primary fleet-form-apply"
     >
       {{ submitLabel }}
     </button>

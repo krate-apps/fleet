@@ -40,6 +40,8 @@ export type UIFormField = {
   required?: boolean;
   help?: string;
   placeholder?: string;
+  /** HTML number input step; omit or `"any"` to allow decimals (and integers). */
+  step?: number | "any";
   advanced?: boolean;
   rows?: number;
   options?: UIFormFieldOption[];

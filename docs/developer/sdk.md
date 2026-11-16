@@ -48,7 +48,7 @@ Declarative UI contributions are the default: columns, actions, pages, panels, a
 
 | Field / form key | Use |
 | --- | --- |
-| `kind: "text"` / `"number"` / `"boolean"` / `"url"` | Standard inputs |
+| `kind: "text"` / `"number"` / `"boolean"` / `"url"` | Standard inputs (`number` accepts decimals by default; optional `step`, e.g. `0.01` or `"any"`) |
 | `kind: "textarea"` | Multiline DSL; optional `rows`; format in `help` |
 | `kind: "select"` | Requires `options: [{ "value", "label" }]` |
 | `help` | Short muted hint under the control |
