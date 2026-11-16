@@ -38,7 +38,6 @@ type SyncStatus = {
 const busy = ref(false);
 const notice = ref("");
 const noticeKind = ref<"ok" | "error">("ok");
-const enabled = ref(false);
 const intervalSec = ref(10);
 const direction = ref("primaryToOthers");
 const primaryClientId = ref("local-rtorrent");
@@ -54,13 +53,11 @@ function setNotice(msg: string, kind: "ok" | "error" = "ok") {
 async function loadSettings() {
   const res = await extensionRPC(EXT, "ext.labelbridge.getSettings", {});
   const r = (res.result ?? {}) as {
-    enabled?: boolean;
     intervalSec?: number;
     direction?: string;
     primaryClientId?: string;
     pairsText?: string;
   };
-  enabled.value = !!r.enabled;
   intervalSec.value = typeof r.intervalSec === "number" ? r.intervalSec : 10;
   direction.value = r.direction || "primaryToOthers";
   primaryClientId.value = r.primaryClientId || "local-rtorrent";
@@ -76,7 +73,7 @@ async function saveSettings() {
   busy.value = true;
   try {
     await extensionRPC(EXT, "ext.labelbridge.saveSettings", {
-      enabled: enabled.value,
+      enabled: true,
       intervalSec: intervalSec.value,
       direction: direction.value,
       primaryClientId: primaryClientId.value,
@@ -171,14 +168,6 @@ onMounted(async () => {
 
     <section class="ls-cfg__card">
       <h3>{{ t("labelsync.settings") }}</h3>
-      <label class="ls-cfg__row">
-        <input
-          v-model="enabled"
-          type="checkbox"
-          :disabled="busy"
-        >
-        {{ t("labelsync.enabled") }}
-      </label>
       <label class="ls-cfg__row">
         {{ t("labelsync.interval") }}
         <input

@@ -1,7 +1,9 @@
 <script setup lang="ts">
 import { onMounted, onUnmounted, reactive, ref } from "vue";
 import { extensionRPC } from "@/api/client";
+import { useI18n } from "@/i18n/useI18n";
 
+const { t } = useI18n();
 const EXT = "org.fleet.autodownload";
 
 type IrcServer = {
@@ -262,7 +264,8 @@ async function saveAll() {
   notice.value = "";
   try {
     const res = await extensionRPC(EXT, "ext.autodownload.saveSettings", {
-      enabled: global.enabled,
+      // Activation in Extensions list is the only on/off for this worker.
+      enabled: true,
       paused: global.paused,
       dryRun: global.dryRun,
       intervalSec: global.intervalSec,
@@ -499,14 +502,6 @@ onUnmounted(() => {
       <div class="fleet-ext-actions">
         <button
           type="button"
-          class="fleet-btn-primary"
-          :disabled="busy"
-          @click="saveAll"
-        >
-          Save
-        </button>
-        <button
-          type="button"
           class="fleet-btn"
           :disabled="busy"
           @click="refreshAll"
@@ -577,62 +572,55 @@ onUnmounted(() => {
 
       <section class="fleet-autodl-section">
         <h3>Global</h3>
-        <div class="fleet-autodl-grid">
-          <label
-            class="fleet-decl-field"
-            data-kind="boolean"
-          >
-            <input
-              v-model="global.enabled"
-              class="fleet-decl-check"
-              type="checkbox"
+        <div class="fleet-autodl-toggles">
+          <div class="fleet-autodl-toggles-rest">
+            <label
+              class="fleet-decl-field"
+              data-kind="boolean"
             >
-            <span>Enabled</span>
-          </label>
-          <label
-            class="fleet-decl-field"
-            data-kind="boolean"
-          >
-            <input
-              v-model="global.paused"
-              class="fleet-decl-check"
-              type="checkbox"
+              <input
+                v-model="global.paused"
+                class="fleet-decl-check"
+                type="checkbox"
+              >
+              <span>Paused</span>
+            </label>
+            <label
+              class="fleet-decl-field"
+              data-kind="boolean"
             >
-            <span>Paused</span>
-          </label>
-          <label
-            class="fleet-decl-field"
-            data-kind="boolean"
-          >
-            <input
-              v-model="global.dryRun"
-              class="fleet-decl-check"
-              type="checkbox"
+              <input
+                v-model="global.dryRun"
+                class="fleet-decl-check"
+                type="checkbox"
+              >
+              <span>Dry run</span>
+            </label>
+            <label
+              class="fleet-decl-field"
+              data-kind="boolean"
             >
-            <span>Dry run</span>
-          </label>
-          <label
-            class="fleet-decl-field"
-            data-kind="boolean"
-          >
-            <input
-              v-model="global.start"
-              class="fleet-decl-check"
-              type="checkbox"
+              <input
+                v-model="global.start"
+                class="fleet-decl-check"
+                type="checkbox"
+              >
+              <span>Start after add</span>
+            </label>
+            <label
+              class="fleet-decl-field"
+              data-kind="boolean"
             >
-            <span>Start after add</span>
-          </label>
-          <label
-            class="fleet-decl-field"
-            data-kind="boolean"
-          >
-            <input
-              v-model="global.removeAfterAdd"
-              class="fleet-decl-check"
-              type="checkbox"
-            >
-            <span>Remove watched file after add</span>
-          </label>
+              <input
+                v-model="global.removeAfterAdd"
+                class="fleet-decl-check"
+                type="checkbox"
+              >
+              <span>Remove watched file after add</span>
+            </label>
+          </div>
+        </div>
+        <div class="fleet-autodl-grid fleet-autodl-metrics">
           <label class="fleet-decl-field">
             <span class="fleet-decl-label">Watch interval (seconds)</span>
             <input
@@ -1350,10 +1338,21 @@ onUnmounted(() => {
           v-if="showAdvanced"
           class="fleet-ext-note"
         >
-          Structured Save above is the primary path. The legacy textarea DSL remains available via the
+          Use Apply below as the primary path. The legacy textarea DSL remains available via the
           declarative forms API for automation; prefer this screen for day-to-day edits.
         </p>
       </section>
+
+      <footer class="fleet-autodl-footer">
+        <button
+          type="button"
+          class="fleet-btn-primary fleet-form-apply"
+          :disabled="busy"
+          @click="saveAll"
+        >
+          {{ t("extensions.apply") }}
+        </button>
+      </footer>
     </div>
   </div>
 </template>
@@ -1380,6 +1379,7 @@ onUnmounted(() => {
   flex-direction: column;
   gap: 1.1rem;
   min-width: 0;
+  min-height: 0;
 }
 
 .fleet-autodl-section h3,
@@ -1400,14 +1400,50 @@ onUnmounted(() => {
   margin: 0;
 }
 
+.fleet-autodl-toggles {
+  display: flex;
+  flex-direction: column;
+  gap: 0.15rem;
+  margin-bottom: 0.85rem;
+  padding-bottom: 0.75rem;
+  border-bottom: 1px solid var(--fleet-border-soft, var(--fleet-border));
+}
+
+.fleet-autodl-toggles-rest {
+  display: flex;
+  flex-direction: column;
+  gap: 0.1rem;
+  margin-top: 0.35rem;
+  padding-top: 0.35rem;
+  border-top: 1px dashed var(--fleet-border-soft, var(--fleet-border));
+}
+
 .fleet-autodl-grid {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
   gap: 0.75rem 1rem;
+  align-items: start;
 }
 
-.fleet-autodl-grid .fleet-decl-field[data-wide="true"] {
+.fleet-autodl-metrics .fleet-decl-field {
+  min-width: 0;
+}
+
+.fleet-autodl-metrics .fleet-decl-control {
+  max-width: 12rem;
+}
+
+.fleet-autodl-grid .fleet-decl-field[data-wide="true"],
+.fleet-autodl-grid .fleet-decl-field[data-kind="boolean"] {
   grid-column: 1 / -1;
+}
+
+.fleet-autodl-footer {
+  display: block;
+  width: 100%;
+  padding-top: 0.85rem;
+  margin-top: 0.35rem;
+  border-top: 1px solid var(--fleet-border-soft, var(--fleet-border));
 }
 
 .fleet-autodl-list {
