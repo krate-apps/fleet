@@ -3,11 +3,7 @@ import { computed, ref, toRef, watch } from "vue";
 import { useRouter } from "vue-router";
 import { createShare, deleteShare, extensionRPC, fetchShares } from "@/api/client";
 import DeclarativeForm from "@/components/DeclarativeForm.vue";
-import ExtratioRulesBuilder from "@/components/ExtratioRulesBuilder.vue";
-import HooksDslBuilder from "@/components/HooksDslBuilder.vue";
-import NotifyChannelsBuilder from "@/components/NotifyChannelsBuilder.vue";
-import RcloneRulesBuilder from "@/components/RcloneRulesBuilder.vue";
-import RulesDslBuilder from "@/components/RulesDslBuilder.vue";
+import DslEditorChrome from "@/components/DslEditorChrome.vue";
 import SchedulerSlotsBuilder from "@/components/SchedulerSlotsBuilder.vue";
 import { useExtensionUI } from "@/composables/useExtensionUI";
 import { useShellModals } from "@/composables/useShellModals";
@@ -137,6 +133,26 @@ const DSL_FORM_IDS: Record<DslKind, string> = {
   extratio: "extratio-rules",
 };
 
+/** Form that hosts Editor / slots / history chrome (settings first, chrome, then Apply). */
+const chromeHostFormId = computed<string | null>(() => {
+  if (dslKind.value) return DSL_FORM_IDS[dslKind.value];
+  switch (extensionId.value) {
+    case "org.fleet.scheduler":
+      return "schedule-enable";
+    case "org.fleet.history":
+      return "history-settings";
+    case "org.fleet.portwatch":
+      return "portwatch-settings";
+    default:
+      return null;
+  }
+});
+
+function isChromeHostForm(form: UIForm, formIdx: number, formCount: number): boolean {
+  if (chromeHostFormId.value) return form.id === chromeHostFormId.value;
+  return formIdx === formCount - 1;
+}
+
 const DSL_FIELD_NAMES: Record<DslKind, string> = {
   rules: "rulesText",
   notify: "channelsText",
@@ -202,16 +218,24 @@ const dslExpertLabelKey = computed(() => {
   }
 });
 
-/** Always omit DSL textarea from DeclarativeForm — builder/expert chrome owns it. */
+/** Hide DSL textarea + master Enabled (Extensions Activate is the only on/off). */
 const displayForms = computed(() => {
   const forms = resolved.value?.forms ?? [];
-  const hide = DSL_HIDE_FIELDS[extensionId.value];
-  if (!hide) return forms;
+  const hideDsl = DSL_HIDE_FIELDS[extensionId.value];
   return forms.map((form) => ({
     ...form,
-    fields: form.fields.filter((f) => f.name !== hide),
+    fields: form.fields.filter((f) => {
+      if (hideDsl && f.name === hideDsl) return false;
+      // Soft-disable checkbox removed — activate/deactivate owns power state.
+      if (f.name === "enabled" && f.kind === "boolean") return false;
+      return true;
+    }),
   }));
 });
+
+function formHasMasterEnabled(form: UIForm | undefined): boolean {
+  return Boolean(form?.fields.some((f) => f.name === "enabled" && f.kind === "boolean"));
+}
 
 function parseCurrentDsl(text: string): { error?: string } {
   switch (dslKind.value) {
@@ -561,6 +585,8 @@ async function onFormSubmit(values: Record<string, unknown>) {
       if (dslKind.value === "hooks") payload.hooksText = hooksTextDraft.value;
       if (dslKind.value === "rclone") payload.rulesText = rcloneRulesDraft.value;
       if (dslKind.value === "extratio") payload.rulesText = extratioRulesDraft.value;
+      // Master enabled is no longer in the form — keep workers soft-on while activated.
+      if (formHasMasterEnabled(form)) payload.enabled = true;
       const res = await extensionRPC(extensionId.value, form.submitMethod, payload);
       applySaveNotice(res.result);
       await loadFormPrefill(form);
@@ -590,7 +616,7 @@ async function onFormSubmit(values: Record<string, unknown>) {
     }
     if (extensionId.value === "org.fleet.scheduler") {
       const payload = toSavePayload({
-        enabled: Boolean(values.enabled),
+        enabled: true,
         slots: scheduleSlots.value,
       });
       const err = validateSchedule(payload);
@@ -845,9 +871,6 @@ async function onFormSubmit(values: Record<string, unknown>) {
         enabled: Boolean(values.enabled),
         lowMax: Number(values.lowMax) || 1,
         midMax: Number(values.midMax) || 2,
-        lowColor: String(values.lowColor ?? ""),
-        midColor: String(values.midColor ?? ""),
-        highColor: String(values.highColor ?? ""),
       });
       applySaveNotice(res.result, "Ratio Color saved");
       return;
@@ -1830,116 +1853,6 @@ async function onAction(actionId: string, label: string, needsConfirm = false) {
         </div>
 
         <div
-          v-if="extensionId === 'org.fleet.history'"
-          class="fleet-obs-report"
-        >
-          <h4>{{ t("obs.history.title") }}</h4>
-          <div class="fleet-obs-report-actions fleet-obs-history-toolbar">
-            <label class="fleet-obs-history-filter">
-              <span>{{ t("obs.history.filter") }}</span>
-              <select
-                v-model="historyActionFilter"
-                class="fleet-decl-control"
-                @change="refreshHistoryEvents"
-              >
-                <option value="">
-                  {{ t("obs.history.filterAll") }}
-                </option>
-                <option value="addition">
-                  {{ t("obs.history.filterAddition") }}
-                </option>
-                <option value="finish">
-                  {{ t("obs.history.filterFinish") }}
-                </option>
-                <option value="deletion">
-                  {{ t("obs.history.filterDeletion") }}
-                </option>
-              </select>
-            </label>
-            <button
-              type="button"
-              class="fleet-btn"
-              :disabled="busy"
-              @click="onAction('list-log', 'Show history')"
-            >
-              {{ t("obs.history.refresh") }}
-            </button>
-            <button
-              type="button"
-              class="fleet-btn-primary"
-              :disabled="busy"
-              @click="onAction('export-csv', 'Export CSV')"
-            >
-              {{ t("obs.history.exportCsv") }}
-            </button>
-          </div>
-          <p
-            v-if="!historyEvents.length"
-            class="fleet-ext-note"
-          >
-            {{ t("obs.history.empty") }}
-          </p>
-          <ul
-            v-else
-            class="fleet-obs-report-list"
-          >
-            <li
-              v-for="(entry, idx) in historyEvents"
-              :key="entry.id || `${entry.hash}-${entry.actionTime}-${idx}`"
-              class="fleet-obs-report-row"
-            >
-              <div class="fleet-obs-report-meta">
-                <strong>{{ entry.action || "?" }}</strong>
-                <span>{{ entry.name || entry.hash || "—" }}</span>
-                <span class="fleet-ext-note">{{ formatHistoryTime(entry.actionTime) }}</span>
-                <span
-                  v-if="entry.label"
-                  class="fleet-ext-note"
-                >label:{{ entry.label }}</span>
-              </div>
-            </li>
-          </ul>
-        </div>
-
-        <div
-          v-if="extensionId === 'org.fleet.portwatch'"
-          class="fleet-obs-report"
-        >
-          <h4>{{ t("obs.portwatch.history") }}</h4>
-          <p class="fleet-ext-note">
-            {{ t("obs.portwatch.historyHint", { samples: String(portwatchSampleCount) }) }}
-          </p>
-          <ul class="fleet-obs-report-list">
-            <li
-              v-for="day in portwatchDays"
-              :key="day.date || 'day'"
-              class="fleet-obs-report-row"
-            >
-              <div class="fleet-obs-report-meta">
-                <strong>{{ day.date || "—" }}</strong>
-                <span>{{ t("obs.portwatch.upRatio", { ratio: formatUpRatio(day.upRatio) }) }}</span>
-                <span class="fleet-ext-note">
-                  {{ t("obs.portwatch.dayCounts", {
-                    up: String(day.upCount ?? 0),
-                    down: String(day.downCount ?? 0),
-                    samples: String(day.samples ?? 0),
-                  }) }}
-                </span>
-              </div>
-              <div
-                class="fleet-obs-portwatch-bar"
-                :title="formatUpRatio(day.upRatio)"
-              >
-                <span
-                  class="fleet-obs-portwatch-bar-fill"
-                  :style="{ width: `${Math.round((day.upRatio || 0) * 100)}%` }"
-                />
-              </div>
-            </li>
-          </ul>
-        </div>
-
-        <div
           v-if="frameURLs.length"
           class="fleet-ext-frames"
         >
@@ -1955,88 +1868,161 @@ async function onAction(actionId: string, label: string, needsConfirm = false) {
           class="fleet-nfo"
         >{{ nfoText }}</pre>
 
-        <SchedulerSlotsBuilder
-          v-if="showSchedulerChrome"
-          v-model="scheduleSlots"
-        />
-
-        <template v-if="showDslChrome">
-          <div
-            class="fleet-dsl-mode"
-            role="group"
-            :aria-label="t('dsl.modeLabel')"
-          >
-            <button
-              type="button"
-              class="fleet-btn"
-              :aria-pressed="dslMode === 'builder'"
-              @click="setDslMode('builder')"
-            >
-              {{ t("dsl.modeBuilder") }}
-            </button>
-            <button
-              type="button"
-              class="fleet-btn"
-              :aria-pressed="dslMode === 'expert'"
-              @click="setDslMode('expert')"
-            >
-              {{ t("dsl.modeExpert") }}
-            </button>
-          </div>
-          <p
-            v-if="dslParseError"
-            class="fleet-dsl-parse-err"
-          >
-            {{ t("dsl.parseError") }}: {{ dslParseError }}
-          </p>
-          <RulesDslBuilder
-            v-if="dslKind === 'rules' && dslMode === 'builder'"
-            v-model="rulesTextDraft"
-            @parse-error="onDslParseError"
-          />
-          <NotifyChannelsBuilder
-            v-if="dslKind === 'notify' && dslMode === 'builder'"
-            v-model="channelsTextDraft"
-            @parse-error="onDslParseError"
-          />
-          <HooksDslBuilder
-            v-if="dslKind === 'hooks' && dslMode === 'builder'"
-            v-model="hooksTextDraft"
-            @parse-error="onDslParseError"
-          />
-          <RcloneRulesBuilder
-            v-if="dslKind === 'rclone' && dslMode === 'builder'"
-            v-model="rcloneRulesDraft"
-            @parse-error="onDslParseError"
-          />
-          <ExtratioRulesBuilder
-            v-if="dslKind === 'extratio' && dslMode === 'builder'"
-            v-model="extratioRulesDraft"
-            @parse-error="onDslParseError"
-          />
-          <label
-            v-if="dslMode === 'expert'"
-            class="fleet-decl-field"
-            data-wide="true"
-          >
-            <span class="fleet-decl-label">{{ t(dslExpertLabelKey) }}</span>
-            <textarea
-              v-model="dslDraft"
-              class="fleet-decl-control fleet-decl-textarea"
-              :rows="dslKind === 'hooks' ? 8 : 12"
-            />
-          </label>
-        </template>
-
         <DeclarativeForm
-          v-for="form in displayForms"
+          v-for="(form, formIdx) in displayForms"
           :key="form.id"
           :form="form"
           :initial-values="formInitials[form.id] ?? null"
           @submit="onFormSubmit"
+        >
+          <!-- Settings fields first; slots / history / Editor, then Apply. -->
+          <template
+            v-if="isChromeHostForm(form, formIdx, displayForms.length)"
+            #before-submit
+          >
+            <SchedulerSlotsBuilder
+              v-if="showSchedulerChrome"
+              v-model="scheduleSlots"
+            />
+            <div
+              v-if="extensionId === 'org.fleet.history'"
+              class="fleet-obs-report"
+            >
+              <h4>{{ t("obs.history.title") }}</h4>
+              <div class="fleet-obs-report-actions fleet-obs-history-toolbar">
+                <label class="fleet-obs-history-filter">
+                  <span>{{ t("obs.history.filter") }}</span>
+                  <select
+                    v-model="historyActionFilter"
+                    class="fleet-decl-control"
+                    @change="refreshHistoryEvents"
+                  >
+                    <option value="">
+                      {{ t("obs.history.filterAll") }}
+                    </option>
+                    <option value="addition">
+                      {{ t("obs.history.filterAddition") }}
+                    </option>
+                    <option value="finish">
+                      {{ t("obs.history.filterFinish") }}
+                    </option>
+                    <option value="deletion">
+                      {{ t("obs.history.filterDeletion") }}
+                    </option>
+                  </select>
+                </label>
+                <button
+                  type="button"
+                  class="fleet-btn"
+                  :disabled="busy"
+                  @click="onAction('list-log', 'Show history')"
+                >
+                  {{ t("obs.history.refresh") }}
+                </button>
+                <button
+                  type="button"
+                  class="fleet-btn-primary"
+                  :disabled="busy"
+                  @click="onAction('export-csv', 'Export CSV')"
+                >
+                  {{ t("obs.history.exportCsv") }}
+                </button>
+              </div>
+              <p
+                v-if="!historyEvents.length"
+                class="fleet-ext-note"
+              >
+                {{ t("obs.history.empty") }}
+              </p>
+              <ul
+                v-else
+                class="fleet-obs-report-list"
+              >
+                <li
+                  v-for="(entry, idx) in historyEvents"
+                  :key="entry.id || `${entry.hash}-${entry.actionTime}-${idx}`"
+                  class="fleet-obs-report-row"
+                >
+                  <div class="fleet-obs-report-meta">
+                    <strong>{{ entry.action || "?" }}</strong>
+                    <span>{{ entry.name || entry.hash || "—" }}</span>
+                    <span class="fleet-ext-note">{{ formatHistoryTime(entry.actionTime) }}</span>
+                    <span
+                      v-if="entry.label"
+                      class="fleet-ext-note"
+                    >label:{{ entry.label }}</span>
+                  </div>
+                </li>
+              </ul>
+            </div>
+            <div
+              v-if="extensionId === 'org.fleet.portwatch'"
+              class="fleet-obs-report"
+            >
+              <h4>{{ t("obs.portwatch.history") }}</h4>
+              <p class="fleet-ext-note">
+                {{ t("obs.portwatch.historyHint", { samples: String(portwatchSampleCount) }) }}
+              </p>
+              <ul class="fleet-obs-report-list">
+                <li
+                  v-for="day in portwatchDays"
+                  :key="day.date || 'day'"
+                  class="fleet-obs-report-row"
+                >
+                  <div class="fleet-obs-report-meta">
+                    <strong>{{ day.date || "—" }}</strong>
+                    <span>{{ t("obs.portwatch.upRatio", { ratio: formatUpRatio(day.upRatio) }) }}</span>
+                    <span class="fleet-ext-note">
+                      {{ t("obs.portwatch.dayCounts", {
+                        up: String(day.upCount ?? 0),
+                        down: String(day.downCount ?? 0),
+                        samples: String(day.samples ?? 0),
+                      }) }}
+                    </span>
+                  </div>
+                  <div
+                    class="fleet-obs-portwatch-bar"
+                    :title="formatUpRatio(day.upRatio)"
+                  >
+                    <span
+                      class="fleet-obs-portwatch-bar-fill"
+                      :style="{ width: `${Math.round((day.upRatio || 0) * 100)}%` }"
+                    />
+                  </div>
+                </li>
+              </ul>
+            </div>
+            <DslEditorChrome
+              v-if="showDslChrome && dslKind"
+              v-model="dslDraft"
+              :kind="dslKind"
+              :mode="dslMode"
+              :parse-error="dslParseError"
+              :expert-label="t(dslExpertLabelKey)"
+              @set-mode="setDslMode"
+              @parse-error="onDslParseError"
+            />
+          </template>
+        </DeclarativeForm>
+
+        <!-- Chrome-only fallbacks when the host settings form is missing. -->
+        <SchedulerSlotsBuilder
+          v-if="showSchedulerChrome && !displayForms.some((f) => f.id === 'schedule-enable')"
+          v-model="scheduleSlots"
         />
+        <DslEditorChrome
+          v-if="showDslChrome && dslKind && !displayForms.some((f) => f.id === chromeHostFormId)"
+          v-model="dslDraft"
+          :kind="dslKind"
+          :mode="dslMode"
+          :parse-error="dslParseError"
+          :expert-label="t(dslExpertLabelKey)"
+          @set-mode="setDslMode"
+          @parse-error="onDslParseError"
+        />
+
         <p
-          v-if="!resolved.forms.length"
+          v-if="!resolved.forms.length && !showDslChrome && !showSchedulerChrome"
           class="fleet-ext-note"
         >
           This page has no forms yet.
