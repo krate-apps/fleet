@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"sort"
 	"strings"
 	"sync"
 	"time"
@@ -220,8 +221,12 @@ func (h *Host) Activate(id string) (*Record, error) {
 			return nil, fmt.Errorf("consent required: %s", ConsentWarning())
 		}
 	}
-	if rec.State == StateError || rec.Manifest == nil {
-		return nil, fmt.Errorf("extension %s cannot be activated: %s", id, rec.Error)
+	if rec.Manifest == nil {
+		return nil, fmt.Errorf("extension %s cannot be activated: missing manifest", id)
+	}
+	// Allow recovery after a dead worker left state=error (re-Activate restarts the process).
+	if rec.State == StateError {
+		rec.Error = ""
 	}
 	if err := rec.Manifest.Validate(); err != nil {
 		rec.State = StateError
@@ -273,6 +278,80 @@ func (h *Host) Activate(id string) (*Record, error) {
 	h.annotateConsent(rec)
 	cp := *rec
 	return &cp, nil
+}
+
+// ReloadWorkers restarts workers for every extension currently active or in error.
+// Used after host upgrades / switch-release when SQLite still says active but processes are gone.
+func (h *Host) ReloadWorkers() (reloaded []string, failed map[string]string) {
+	h.mu.RLock()
+	ids := make([]string, 0, len(h.records))
+	for id, rec := range h.records {
+		if rec.State == StateActive || rec.State == StateError {
+			ids = append(ids, id)
+		}
+	}
+	h.mu.RUnlock()
+	sort.Strings(ids)
+
+	failed = map[string]string{}
+	for _, id := range ids {
+		if _, err := h.Activate(id); err != nil {
+			failed[id] = err.Error()
+			continue
+		}
+		_ = h.EnsureSoftEnabled(context.Background(), id)
+		reloaded = append(reloaded, id)
+	}
+	return reloaded, failed
+}
+
+// EnsureSoftEnabled turns on the legacy per-extension settings "enabled" flag after Activate.
+// Activation in the Extensions list is the only user-facing on/off; soft-disable checkboxes are gone.
+// Best-effort: skips forms that cannot load/save, or whose save rejects the payload.
+func (h *Host) EnsureSoftEnabled(ctx context.Context, id string) error {
+	h.mu.RLock()
+	rec := h.records[id]
+	var forms []ui.Form
+	if rec != nil && rec.UI != nil {
+		forms = append(forms, rec.UI.Forms...)
+	}
+	h.mu.RUnlock()
+	if len(forms) == 0 {
+		return nil
+	}
+	var last error
+	for _, form := range forms {
+		hasEnabled := false
+		for _, field := range form.Fields {
+			if field.Name == "enabled" && strings.EqualFold(field.Kind, "boolean") {
+				hasEnabled = true
+				break
+			}
+		}
+		if !hasEnabled || form.LoadMethod == "" || form.SubmitMethod == "" {
+			continue
+		}
+		raw, err := h.CallWorker(ctx, id, form.LoadMethod, map[string]any{})
+		if err != nil {
+			last = err
+			continue
+		}
+		settings := map[string]any{}
+		if len(raw) > 0 && string(raw) != "null" {
+			if err := json.Unmarshal(raw, &settings); err != nil {
+				last = err
+				continue
+			}
+		}
+		if on, _ := settings["enabled"].(bool); on {
+			continue
+		}
+		settings["enabled"] = true
+		if _, err := h.CallWorker(ctx, id, form.SubmitMethod, settings); err != nil {
+			last = err
+		}
+	}
+	return last
 }
 
 // Deactivate stops the worker (if any) and marks an extension inactive.

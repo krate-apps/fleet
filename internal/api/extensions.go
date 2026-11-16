@@ -43,12 +43,36 @@ func (s *Server) handleActivateExtension(w http.ResponseWriter, r *http.Request)
 		writeJSON(w, http.StatusServiceUnavailable, map[string]string{"error": "extensions unavailable"})
 		return
 	}
-	rec, err := s.ext.Activate(r.PathValue("id"))
+	id := r.PathValue("id")
+	rec, err := s.ext.Activate(id)
 	if err != nil {
 		writeJSON(w, http.StatusBadRequest, map[string]string{"error": err.Error()})
 		return
 	}
+	// Extensions list Activate is the only on/off; clear legacy settings.enabled=false.
+	_ = s.ext.EnsureSoftEnabled(r.Context(), id)
+	if fresh, getErr := s.ext.Get(id); getErr == nil {
+		rec = fresh
+	}
 	writeJSON(w, http.StatusOK, rec)
+}
+
+func (s *Server) handleReloadExtensionWorkers(w http.ResponseWriter, r *http.Request) {
+	if s.ext == nil {
+		writeJSON(w, http.StatusServiceUnavailable, map[string]string{"error": "extensions unavailable"})
+		return
+	}
+	reloaded, failed := s.ext.ReloadWorkers()
+	status := http.StatusOK
+	if len(failed) > 0 && len(reloaded) == 0 {
+		status = http.StatusBadRequest
+	}
+	writeJSON(w, status, map[string]any{
+		"ok":       len(failed) == 0,
+		"reloaded": reloaded,
+		"failed":   failed,
+		"count":    len(reloaded),
+	})
 }
 
 func (s *Server) handleExtensionConsent(w http.ResponseWriter, r *http.Request) {

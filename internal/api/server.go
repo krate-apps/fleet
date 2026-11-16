@@ -159,6 +159,7 @@ func (s *Server) routes() {
 	s.mux.HandleFunc("POST /api/v1/jobs/{id}/cancel", s.handleCancelJob)
 	s.mux.HandleFunc("GET /api/v1/jobs/{id}/download", s.handleJobDownload)
 	s.mux.HandleFunc("GET /api/v1/extensions", s.handleListExtensions)
+	s.mux.HandleFunc("POST /api/v1/extensions/reload-workers", s.handleReloadExtensionWorkers)
 	s.mux.HandleFunc("GET /api/v1/extensions/{id}", s.handleGetExtension)
 	s.mux.HandleFunc("POST /api/v1/extensions/{id}/activate", s.handleActivateExtension)
 	s.mux.HandleFunc("POST /api/v1/extensions/{id}/deactivate", s.handleDeactivateExtension)
