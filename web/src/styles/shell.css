@@ -582,11 +582,6 @@
   overflow: hidden;
 }
 
-.fleet-client-logo[data-image="1"] {
-  background: transparent;
-  border-color: transparent;
-}
-
 .fleet-client-logo-img {
   width: 22px;
   height: 22px;
@@ -655,6 +650,12 @@
 
 .fleet-client-logo[data-client="unknown"] {
   opacity: 0.55;
+}
+
+/* After family colors so PNG logos stay borderless (no tinted frame under/around the mark). */
+.fleet-client-logo[data-image="1"] {
+  background: transparent;
+  border-color: transparent;
 }
 
 /* ---- Modals ---- */
@@ -1110,15 +1111,44 @@ textarea.fleet-decl-control,
 }
 
 .fleet-detail-metric-value[data-tone="ratio-low"] {
-  color: var(--fleet-destructive-text);
+  color: var(--fleet-ratio-low, var(--fleet-destructive-text));
 }
 
 .fleet-detail-metric-value[data-tone="ratio-mid"] {
-  color: var(--fleet-state-paused);
+  color: var(--fleet-ratio-mid, var(--fleet-state-paused));
 }
 
 .fleet-detail-metric-value[data-tone="ratio-high"] {
-  color: var(--fleet-state-seeding);
+  color: var(--fleet-ratio-high, var(--fleet-state-seeding));
+}
+
+.fleet-ratio-cell {
+  font-variant-numeric: tabular-nums;
+  font-weight: 600;
+}
+
+.fleet-ratio-cell[data-ratio-band="low"] {
+  color: var(--fleet-ratio-low, var(--fleet-destructive-text));
+}
+
+.fleet-ratio-cell[data-ratio-band="mid"] {
+  color: var(--fleet-ratio-mid, var(--fleet-state-paused));
+}
+
+.fleet-ratio-cell[data-ratio-band="high"] {
+  color: var(--fleet-ratio-high, var(--fleet-state-seeding));
+}
+
+.fleet-vrow[data-ratio-band="low"] {
+  box-shadow: inset 3px 0 0 var(--fleet-ratio-low, var(--fleet-destructive-text));
+}
+
+.fleet-vrow[data-ratio-band="mid"] {
+  box-shadow: inset 3px 0 0 var(--fleet-ratio-mid, var(--fleet-state-paused));
+}
+
+.fleet-vrow[data-ratio-band="high"] {
+  box-shadow: inset 3px 0 0 var(--fleet-ratio-high, var(--fleet-state-seeding));
 }
 
 .fleet-detail-speedbar {
@@ -1392,6 +1422,12 @@ textarea.fleet-decl-control,
   box-sizing: border-box;
 }
 
+/* Body cells live inside .fleet-vrow — drop their border or every row shows a double line
+   (especially visible under the narrow Client logo column). */
+.fleet-vrow .fleet-table td {
+  border-bottom: none;
+}
+
 .fleet-vrow[data-selected="true"] {
   background: color-mix(in srgb, var(--fleet-primary) 12%, transparent);
 }
@@ -1571,8 +1607,7 @@ textarea.fleet-decl-control,
   }
 
   .fleet-statusbar-disk,
-  .fleet-statusbar-load,
-  .fleet-statusbar-rates {
+  .fleet-statusbar-load {
     display: none;
   }
 
@@ -1641,6 +1676,52 @@ textarea.fleet-decl-control,
   margin: 0.15rem 0 0.35rem;
   font-size: 1.35rem;
   font-weight: 650;
+}
+
+/* Shared configure layout (declarative + first-party views). */
+.fleet-ext-config {
+  display: grid;
+  grid-template-columns: minmax(13rem, 0.85fr) minmax(0, 1.35fr);
+  gap: 1.25rem 1.5rem;
+  align-items: start;
+}
+
+.fleet-ext-config-side {
+  display: flex;
+  flex-direction: column;
+  gap: 0.85rem;
+  padding-right: 0.75rem;
+  border-right: 1px solid var(--fleet-border-soft, var(--fleet-border));
+  min-width: 0;
+}
+
+.fleet-ext-config-main {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+  min-width: 0;
+}
+
+.fleet-ext-header h2 {
+  margin: 0.15rem 0;
+  font-size: 1.15rem;
+}
+
+.fleet-ext-header .fleet-ext-note {
+  margin-bottom: 0;
+}
+
+@media (max-width: 720px) {
+  .fleet-ext-config {
+    grid-template-columns: 1fr;
+  }
+
+  .fleet-ext-config-side {
+    padding-right: 0;
+    padding-bottom: 0.75rem;
+    border-right: 0;
+    border-bottom: 1px solid var(--fleet-border-soft, var(--fleet-border));
+  }
 }
 
 .fleet-ext-eyebrow {
@@ -1774,6 +1855,14 @@ textarea.fleet-decl-control,
   flex-wrap: wrap;
   align-items: center;
   gap: 0.5rem;
+}
+
+.fleet-dsl-chrome {
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+  width: 100%;
+  margin: 0.15rem 0 0.25rem;
 }
 
 .fleet-dsl-mode {
@@ -1953,6 +2042,20 @@ textarea.fleet-decl-control,
   padding: 0.15rem 0 0.85rem;
 }
 
+/* Primary Apply under every declarative / configure form — full row width. */
+.fleet-decl-form > .fleet-btn-primary,
+.fleet-form-apply,
+.fleet-autodl-footer .fleet-btn-primary {
+  display: flex;
+  width: 100%;
+  align-self: stretch;
+  flex: none;
+  box-sizing: border-box;
+  min-height: 2.4rem;
+  height: auto;
+  padding: 0.7rem 1rem;
+}
+
 .fleet-decl-form-head {
   display: flex;
   flex-direction: column;
@@ -2014,41 +2117,59 @@ textarea.fleet-decl-control,
   align-items: start;
 }
 
-/* Beat `.fleet-modal-body label { display: grid }` specificity. */
-.fleet-decl-form .fleet-decl-field {
+/*
+ * Beat `.fleet-modal-body label { display: grid }` (2 classes + element).
+ * Use the same field chrome for DeclarativeForm and custom Configure screens.
+ */
+.fleet-modal-body .fleet-decl-field,
+.fleet-decl-form .fleet-decl-field,
+.fleet-decl-field {
   display: flex;
   flex-direction: column;
   justify-content: flex-start;
   gap: 0.35rem;
   margin: 0;
   min-width: 0;
-  min-height: 2.75rem;
+  min-height: 0;
   font-size: 0.85rem;
   font-weight: 600;
   color: var(--fleet-fg-muted);
 }
 
-.fleet-decl-form .fleet-decl-field[data-wide="true"] {
+.fleet-modal-body .fleet-decl-field[data-wide="true"],
+.fleet-decl-form .fleet-decl-field[data-wide="true"],
+.fleet-decl-field[data-wide="true"] {
   grid-column: 1 / -1;
-  min-height: 0;
 }
 
-.fleet-decl-form .fleet-decl-field[data-kind="boolean"] {
+/*
+ * Checkboxes never share a grid row with other inputs — full row, label beside box.
+ */
+.fleet-modal-body .fleet-decl-field[data-kind="boolean"],
+.fleet-decl-form .fleet-decl-field[data-kind="boolean"],
+.fleet-decl-field[data-kind="boolean"] {
+  grid-column: 1 / -1;
   flex-direction: row;
   align-items: center;
   gap: 0.55rem;
-  min-height: 2.75rem;
-  padding: 0.35rem 0;
+  min-height: 0;
+  padding: 0.2rem 0;
 }
 
-.fleet-decl-form .fleet-decl-field[data-kind="boolean"] span {
+.fleet-modal-body .fleet-decl-field[data-kind="boolean"] span,
+.fleet-decl-form .fleet-decl-field[data-kind="boolean"] span,
+.fleet-decl-field[data-kind="boolean"] span {
   line-height: 1.3;
   color: var(--fleet-foreground);
   font-weight: 550;
 }
 
+.fleet-modal-body .fleet-decl-field[data-kind="boolean"] .fleet-decl-check,
+.fleet-modal-body .fleet-decl-field[data-kind="boolean"] input[type="checkbox"],
 .fleet-decl-form .fleet-decl-field[data-kind="boolean"] .fleet-decl-check,
-.fleet-decl-form .fleet-decl-field[data-kind="boolean"] input[type="checkbox"] {
+.fleet-decl-form .fleet-decl-field[data-kind="boolean"] input[type="checkbox"],
+.fleet-decl-field[data-kind="boolean"] .fleet-decl-check,
+.fleet-decl-field[data-kind="boolean"] input[type="checkbox"] {
   width: 1.05rem;
   height: 1.05rem;
   margin: 0;
@@ -2056,16 +2177,21 @@ textarea.fleet-decl-control,
   accent-color: var(--fleet-primary);
 }
 
-.fleet-decl-form .fleet-decl-label {
+.fleet-modal-body .fleet-decl-label,
+.fleet-decl-form .fleet-decl-label,
+.fleet-decl-label {
   line-height: 1.3;
 }
 
-.fleet-decl-form .fleet-decl-field[data-kind="textarea"] {
+.fleet-modal-body .fleet-decl-field[data-kind="textarea"],
+.fleet-decl-form .fleet-decl-field[data-kind="textarea"],
+.fleet-decl-field[data-kind="textarea"] {
   grid-column: 1 / -1;
-  min-height: 0;
 }
 
-.fleet-decl-form .fleet-decl-help {
+.fleet-modal-body .fleet-decl-help,
+.fleet-decl-form .fleet-decl-help,
+.fleet-decl-help {
   display: block;
   margin: 0;
   font-size: 0.78rem;
@@ -2074,7 +2200,9 @@ textarea.fleet-decl-control,
   color: var(--fleet-fg-muted);
 }
 
-.fleet-decl-form .fleet-decl-help[data-example="true"] {
+.fleet-modal-body .fleet-decl-help[data-example="true"],
+.fleet-decl-form .fleet-decl-help[data-example="true"],
+.fleet-decl-help[data-example="true"] {
   font-family: var(--fleet-font-mono, ui-monospace, SFMono-Regular, Menlo, Consolas, monospace);
   font-size: 0.74rem;
   white-space: pre-wrap;
@@ -2089,6 +2217,24 @@ textarea.fleet-decl-control,
 .fleet-btn-danger:hover:not(:disabled) {
   border-color: #c44;
   background: color-mix(in srgb, #c44 12%, transparent);
+}
+
+.fleet-obs-status,
+.fleet-obs-report {
+  display: flex;
+  flex-direction: column;
+  gap: 0.45rem;
+  margin: 0;
+  padding: 0.65rem 0.75rem;
+  border: 1px solid var(--fleet-border-soft, var(--fleet-border));
+  border-radius: 0.4rem;
+  background: color-mix(in srgb, var(--fleet-surface-2, rgba(0, 0, 0, 0.2)) 80%, transparent);
+}
+
+.fleet-obs-status h4,
+.fleet-obs-report h4 {
+  margin: 0;
+  font-size: 0.9rem;
 }
 
 .fleet-ext-tip {
