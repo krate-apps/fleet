@@ -56,7 +56,7 @@ Important keys:
 
 - `rtorrent.address` — `unix:///path/to.sock` or `scgi://host:port`
 - `rtorrent.download_roots` — absolute directories Fleet may touch for erase_data, Files, shares, and path-guarded tools
-- Optional `tools:` helpers (`mktorrent`, `dumptorrent`, `unrar`, `mediainfo`, `ffmpeg`, `sox`)
+- Optional `tools:` helpers (`mktorrent`, `dumptorrent`, `unrar`, `mediainfo`, `ffmpeg`, `sox`, `rclone`) — also editable in **Settings → Tools**
 - Optional `geoip.database` (MaxMind Country MMDB) for peer country codes
 - `buckets.official_path` — e.g. `../buckets/fleet-official-bucket` in a workspace checkout
 

@@ -58,7 +58,7 @@ Shortcuts are ignored while typing in inputs or when a modal is open.
 
 ## Jobs
 
-Long work (for example creating a torrent) appears as a job with progress. Helpers are configured under `tools:` — see [Tools](../developer/tools.md).
+Long work (for example creating a torrent) appears as a job with progress. Helper binaries are set under `tools:` in `config.yaml` or in **Settings → Tools** (UI overlays YAML). See [Tools](../developer/tools.md).
 
 ## Logs
 

@@ -25,4 +25,6 @@ tools:
 
 Other helpers (`unrar`, `mediainfo`, `ffmpeg`, `sox`, `rclone`) are optional path entries under `tools:` and are path-guarded by `download_roots` where applicable.
 
-HTTP APIs: `POST /api/v1/tools/dumptorrent`, `POST /api/v1/tools/mktorrent` (job). Extensions with `tools.mktorrent` may call `fleet.tools.mktorrent` over reverse RPC.
+Operators can also set absolute paths in **Settings → Tools**. UI values are stored in SQLite and overlay `config.yaml` (empty field = YAML, then PATH). `GET/PUT /api/v1/settings/tools` applies changes live; changing `rclone` reloads active extension workers so `FLEET_TOOL_RCLONE` updates.
+
+HTTP APIs: `POST /api/v1/tools/dumptorrent`, `POST /api/v1/tools/mktorrent` (job), `GET /api/v1/tools/status`. Extensions with `tools.mktorrent` may call `fleet.tools.mktorrent` over reverse RPC.

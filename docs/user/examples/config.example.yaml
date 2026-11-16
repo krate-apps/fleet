@@ -16,6 +16,7 @@ rtorrent:
   download_roots: []
 
 # Optional JSON-capable helpers (CORE-014/015). Leave empty until binaries are installed.
+# Settings → Tools can overlay these at runtime (SQLite); non-empty UI paths win until cleared.
 tools:
   mktorrent: ""
   dumptorrent: ""
