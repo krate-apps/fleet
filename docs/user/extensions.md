@@ -28,7 +28,7 @@ Common packages (listing file → id):
 | `bucket/org.fleet.nzbbridge.json` | `org.fleet.nzbbridge` | SABnzbd/NZBGet → torrent intake |
 | `bucket/org.fleet.traffic.json` | `org.fleet.traffic` | Day/month/year + per-tracker totals |
 
-Each repository README links the matching listing under `bucket/org.fleet.<slug>.json`.
+Each repository README links the matching listing under `bucket/org.fleet.<slug>.json` and documents **Configuration** parameters (forms, actions, Activate-only on/off) in that README.
 
 ## Local development layout
 

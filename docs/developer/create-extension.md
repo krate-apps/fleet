@@ -33,6 +33,17 @@ Minimal template worker answers lifecycle methods and a sample `ext.template.get
 
 Prefer `loadMethod` / `submitMethod` for settings forms ([ui-contribution.schema.json](schemas/ui-contribution.schema.json)). Action-only forms keep custom handlers. See [SDK → Declarative UI](sdk.md#declarative-ui-frontend).
 
+## README configuration section
+
+Document every settings field and global action in the package `README.md` under **Configuration**. Official packages generate that block from `ui/extension.json`:
+
+```bash
+make docs-config
+# python3 scripts/gen-readme-config.py .
+```
+
+The script upserts markdown between `<!-- fleet-config:start -->` and `<!-- fleet-config:end -->` (Install / Pack / footer stay untouched). Skip documenting a master Enabled checkbox — **Extensions → Activate** is the only on/off. Optional first-party UI notes live in `scripts/readme-config-extras/<extensionId>.md` next to the generator in the template.
+
 ## Local install into Fleet
 
 1. `make build` in the extension repo
