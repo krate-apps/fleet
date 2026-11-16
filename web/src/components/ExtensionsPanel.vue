@@ -106,11 +106,17 @@ const installedRows = computed(() =>
     })
     .map((ext) => {
       const cat = catalogById.value.get(ext.id);
-      const updateAvailable = Boolean(cat?.version && isNewerVersion(cat.version, ext.version));
+      const updateAvailable = Boolean(
+        cat?.installable &&
+          cat.bucketId &&
+          cat.version &&
+          isNewerVersion(cat.version, ext.version),
+      );
       return {
         ext,
         configure: ext.state === "active" ? configureTarget(ext) : null,
         updateAvailable,
+        catalogBucketId: cat?.bucketId || "",
         catalogVersion: cat?.version,
         repository: cat?.repository || "",
       };
@@ -240,6 +246,37 @@ async function installCatalog(entry: CatalogEntry) {
     notice.value = e instanceof Error ? e.message : String(e);
   } finally {
     bucketBusy.value = false;
+  }
+}
+
+/** Reinstall from the catalog listing (InstallLocal replaces the package dir). */
+async function updateExtension(row: {
+  ext: ExtensionRecord;
+  catalogBucketId: string;
+  catalogVersion?: string;
+}) {
+  if (!row.catalogBucketId) return;
+  const wasLive = row.ext.state === "active" || row.ext.state === "error";
+  busyId.value = row.ext.id;
+  notice.value = "";
+  try {
+    await installFromBucket(row.catalogBucketId, row.ext.id);
+    await refresh(true);
+    await loadBuckets();
+    if (wasLive) {
+      const ext = extensions.value.find((e) => e.id === row.ext.id);
+      let acceptRisk = false;
+      if (ext?.consentRequired && !ext.consented) {
+        acceptRisk = true;
+      }
+      await activate(row.ext.id, { acceptRisk });
+    }
+    const ver = row.catalogVersion ? ` → ${row.catalogVersion}` : "";
+    notice.value = `${t("extensions.update")}: ${row.ext.name}${ver}`;
+  } catch (e) {
+    notice.value = e instanceof Error ? e.message : String(e);
+  } finally {
+    busyId.value = "";
   }
 }
 
@@ -472,6 +509,16 @@ defineExpose({
             </div>
             <div class="fleet-ext-row-actions">
               <button
+                v-if="row.updateAvailable"
+                type="button"
+                class="fleet-btn-primary"
+                :disabled="busyId === row.ext.id || bucketBusy"
+                :title="row.catalogVersion ? `${row.ext.version} → ${row.catalogVersion}` : undefined"
+                @click="updateExtension(row)"
+              >
+                {{ t("extensions.update") }}
+              </button>
+              <button
                 type="button"
                 class="fleet-btn"
                 :disabled="busyId === row.ext.id || (row.ext.state === 'error' && !row.ext.ui)"
@@ -482,7 +529,7 @@ defineExpose({
               <button
                 v-if="row.configure"
                 type="button"
-                class="fleet-btn-primary"
+                :class="row.updateAvailable ? 'fleet-btn' : 'fleet-btn-primary'"
                 @click="openConfigure(row.configure)"
               >
                 {{ t("extensions.configure") }}
