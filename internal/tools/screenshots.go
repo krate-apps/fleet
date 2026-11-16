@@ -74,7 +74,7 @@ func (r *Runner) Screenshots(ctx context.Context, path string, opts ScreenshotOp
 		width = 1920
 	}
 
-	bin := strings.TrimSpace(r.FfmpegPath)
+	bin := r.lockedPath(func(r *Runner) string { return r.FfmpegPath })
 	if bin == "" {
 		bin = "ffmpeg"
 	}

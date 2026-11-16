@@ -41,9 +41,10 @@ func RunMktorrentJob(jm *jobs.Manager, template *Runner, dataDir, jobID string, 
 	_ = jm.MarkRunning(jobID, "creating torrent")
 
 	artifactDir := filepath.Join(dataDir, "artifacts", jobID)
+	p := template.Paths()
 	runner := &Runner{
-		MktorrentPath:   template.MktorrentPath,
-		DumptorrentPath: template.DumptorrentPath,
+		MktorrentPath:   p.Mktorrent,
+		DumptorrentPath: p.Dumptorrent,
 		AllowedRoots:    append([]string(nil), template.AllowedRoots...),
 		ArtifactsDir:    artifactDir,
 	}

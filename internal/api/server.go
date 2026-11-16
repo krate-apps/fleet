@@ -60,6 +60,7 @@ type Options struct {
 	Shares     *share.Store
 	Logs       *logs.Aggregator
 	Themes     *themes.Store
+	Tools      *tools.Runner
 }
 
 // New constructs an API server. webFS may be nil when the UI is not embedded yet.
@@ -71,21 +72,27 @@ func New(cfg config.Config, logger *slog.Logger, webFS fs.FS, engine *sync.Engin
 	if len(opts) > 0 {
 		o = opts[0]
 	}
-	s := &Server{
-		cfg:    cfg,
-		logger: logger,
-		mux:    http.NewServeMux(),
-		webFS:  webFS,
-		engine: engine,
-		tools: &tools.Runner{
+	toolRunner := o.Tools
+	if toolRunner == nil {
+		toolRunner = &tools.Runner{
 			MktorrentPath:   cfg.Tools.Mktorrent,
 			DumptorrentPath: cfg.Tools.Dumptorrent,
 			MediainfoPath:   cfg.Tools.Mediainfo,
 			FfmpegPath:      cfg.Tools.Ffmpeg,
 			SoxPath:         cfg.Tools.Sox,
+			UnrarPath:       cfg.Tools.Unrar,
+			RclonePath:      cfg.Tools.Rclone,
 			AllowedRoots:    append([]string(nil), cfg.RTorrent.DownloadRoots...),
 			ArtifactsDir:    filepath.Join(cfg.DataDir, "artifacts"),
-		},
+		}
+	}
+	s := &Server{
+		cfg:     cfg,
+		logger:  logger,
+		mux:     http.NewServeMux(),
+		webFS:   webFS,
+		engine:  engine,
+		tools:   toolRunner,
 		jobs:    o.Jobs,
 		ext:     o.Extensions,
 		buckets: o.Buckets,
@@ -120,6 +127,8 @@ func (s *Server) routes() {
 	s.mux.HandleFunc("GET /api/v1/feeds/{mode}", s.handleFeedXML)
 	s.mux.HandleFunc("GET /api/v1/settings/feeds", s.handleGetFeedsSettings)
 	s.mux.HandleFunc("PUT /api/v1/settings/feeds", s.handlePutFeedsSettings)
+	s.mux.HandleFunc("GET /api/v1/settings/tools", s.handleGetToolsSettings)
+	s.mux.HandleFunc("PUT /api/v1/settings/tools", s.handlePutToolsSettings)
 	s.mux.HandleFunc("POST /api/v1/torrents", s.handleAddTorrents)
 	s.mux.HandleFunc("POST /api/v1/torrents/actions", s.handleTorrentActions)
 	s.mux.HandleFunc("GET /api/v1/torrents/{id}/files", s.handleTorrentFiles)

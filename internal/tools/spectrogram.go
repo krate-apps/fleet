@@ -46,7 +46,7 @@ func (r *Runner) Spectrogram(ctx context.Context, path string, opts SpectrogramO
 		return nil, fmt.Errorf("path must be a regular file")
 	}
 
-	bin := strings.TrimSpace(r.SoxPath)
+	bin := r.lockedPath(func(r *Runner) string { return r.SoxPath })
 	if bin == "" {
 		bin = "sox"
 	}

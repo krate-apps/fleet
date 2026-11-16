@@ -3,6 +3,7 @@ package main
 import (
 	"context"
 	"embed"
+	"encoding/json"
 	"flag"
 	"fmt"
 	"io/fs"
@@ -157,25 +158,34 @@ func run() int {
 		logger.Info("official bucket disabled by config")
 	}
 	extRoots := extensionRoots(cfg, bucketReg.InstallRoot())
+	yamlTools := tools.Paths{
+		Mktorrent:   cfg.Tools.Mktorrent,
+		Dumptorrent: cfg.Tools.Dumptorrent,
+		Mediainfo:   cfg.Tools.Mediainfo,
+		Ffmpeg:      cfg.Tools.Ffmpeg,
+		Sox:         cfg.Tools.Sox,
+		Unrar:       cfg.Tools.Unrar,
+		Rclone:      cfg.Tools.Rclone,
+	}
+	effectiveTools := tools.OverlayNonEmpty(yamlTools, loadToolsSettingsOverlay(store))
 	toolsRunner := &tools.Runner{
-		MktorrentPath:   cfg.Tools.Mktorrent,
-		DumptorrentPath: cfg.Tools.Dumptorrent,
-		MediainfoPath:   cfg.Tools.Mediainfo,
-		FfmpegPath:      cfg.Tools.Ffmpeg,
-		SoxPath:         cfg.Tools.Sox,
+		MktorrentPath:   effectiveTools.Mktorrent,
+		DumptorrentPath: effectiveTools.Dumptorrent,
+		MediainfoPath:   effectiveTools.Mediainfo,
+		FfmpegPath:      effectiveTools.Ffmpeg,
+		SoxPath:         effectiveTools.Sox,
+		UnrarPath:       effectiveTools.Unrar,
+		RclonePath:      effectiveTools.Rclone,
 		AllowedRoots:    append([]string(nil), cfg.RTorrent.DownloadRoots...),
 		ArtifactsDir:    filepath.Join(cfg.DataDir, "artifacts"),
 	}
 	extBridge := &extensions.CoreBridge{
 		Storage: &extensions.StorageBridge{DataDir: cfg.DataDir},
 		Torrents: torrentsAdapter{
-			engine:        engine,
-			store:         store,
-			roots:         append([]string(nil), cfg.RTorrent.DownloadRoots...),
-			unrarBin:      cfg.Tools.Unrar,
-			mediainfoPath: cfg.Tools.Mediainfo,
-			ffmpegPath:    cfg.Tools.Ffmpeg,
-			soxPath:       cfg.Tools.Sox,
+			engine: engine,
+			store:  store,
+			roots:  append([]string(nil), cfg.RTorrent.DownloadRoots...),
+			tools:  toolsRunner,
 		},
 		Gateways: gatewaysAdapter{store: store},
 		Intake:   intakeAdapter{store: store, engine: engine},
@@ -197,13 +207,15 @@ func run() int {
 		Cookies: extBridge.Cookies,
 		HTTP:    extBridge.HTTP,
 	}
+	workerEnv := map[string]string{}
+	if effectiveTools.Rclone != "" {
+		workerEnv["FLEET_TOOL_RCLONE"] = effectiveTools.Rclone
+	}
 	extHost := extensions.NewHostWithOptions(ctx, store, extensions.HostOptions{
-		Roots:   extRoots,
-		DataDir: cfg.DataDir,
-		Bridge:  extBridge,
-		WorkerEnv: map[string]string{
-			"FLEET_TOOL_RCLONE": cfg.Tools.Rclone,
-		},
+		Roots:     extRoots,
+		DataDir:   cfg.DataDir,
+		Bridge:    extBridge,
+		WorkerEnv: workerEnv,
 	})
 	if err := extHost.Refresh(); err != nil {
 		logger.Warn("extensions refresh", "err", err)
@@ -257,6 +269,7 @@ func run() int {
 		Shares:     &share.Store{DataDir: cfg.DataDir},
 		Logs:       logAgg,
 		Themes:     themeStore,
+		Tools:      toolsRunner,
 	})
 	httpServer := &http.Server{
 		Addr:              cfg.Addr(),
@@ -325,13 +338,27 @@ func (a engineAdapter) Capabilities() map[string]any {
 }
 
 type torrentsAdapter struct {
-	engine        *sync.Engine
-	store         *storage.Store
-	roots         []string
-	unrarBin      string
-	mediainfoPath string
-	ffmpegPath    string
-	soxPath       string
+	engine *sync.Engine
+	store  *storage.Store
+	roots  []string
+	tools  *tools.Runner
+}
+
+const toolsSettingsMetaKey = "tools_settings"
+
+func loadToolsSettingsOverlay(store *storage.Store) tools.Paths {
+	if store == nil {
+		return tools.Paths{}
+	}
+	raw, err := store.GetMeta(toolsSettingsMetaKey)
+	if err != nil || strings.TrimSpace(raw) == "" {
+		return tools.Paths{}
+	}
+	var p tools.Paths
+	if err := json.Unmarshal([]byte(raw), &p); err != nil {
+		return tools.Paths{}
+	}
+	return tools.OverridesOnly(p)
 }
 
 func (a torrentsAdapter) AddMagnets(ctx context.Context, magnets []string, start bool) error {
@@ -576,10 +603,21 @@ func (a torrentsAdapter) SetRates(ctx context.Context, hash, clientID string, up
 }
 
 func (a torrentsAdapter) UnpackArchive(ctx context.Context, archivePath, destDir string) (int, error) {
+	unrar := ""
+	if a.tools != nil {
+		unrar = a.tools.Paths().Unrar
+	}
 	return a.engine.UnpackArchive(ctx, archivePath, destDir, sync.UnpackOptions{
 		DownloadRoots: a.roots,
-		UnrarBin:      a.unrarBin,
+		UnrarBin:      unrar,
 	})
+}
+
+func (a torrentsAdapter) toolRunner() *tools.Runner {
+	if a.tools != nil {
+		return a.tools
+	}
+	return &tools.Runner{AllowedRoots: append([]string(nil), a.roots...)}
 }
 
 func (a torrentsAdapter) MediaInfo(ctx context.Context, hash string, index int, path string) (string, error) {
@@ -591,11 +629,7 @@ func (a torrentsAdapter) MediaInfo(ctx context.Context, hash string, index int, 
 		}
 		path = resolved
 	}
-	runner := &tools.Runner{
-		MediainfoPath: a.mediainfoPath,
-		AllowedRoots:  append([]string(nil), a.roots...),
-	}
-	return runner.MediaInfo(ctx, path)
+	return a.toolRunner().MediaInfo(ctx, path)
 }
 
 func (a torrentsAdapter) Screenshots(ctx context.Context, hash string, index int, path string, count, offset, interval, width int) ([]map[string]any, error) {
@@ -607,11 +641,7 @@ func (a torrentsAdapter) Screenshots(ctx context.Context, hash string, index int
 		}
 		path = resolved
 	}
-	runner := &tools.Runner{
-		FfmpegPath:   a.ffmpegPath,
-		AllowedRoots: append([]string(nil), a.roots...),
-	}
-	frames, err := runner.Screenshots(ctx, path, tools.ScreenshotOpts{
+	frames, err := a.toolRunner().Screenshots(ctx, path, tools.ScreenshotOpts{
 		Count: count, Offset: offset, Interval: interval, Width: width,
 	})
 	if err != nil {
@@ -639,11 +669,7 @@ func (a torrentsAdapter) Spectrogram(ctx context.Context, hash string, index int
 		}
 		path = resolved
 	}
-	runner := &tools.Runner{
-		SoxPath:      a.soxPath,
-		AllowedRoots: append([]string(nil), a.roots...),
-	}
-	img, err := runner.Spectrogram(ctx, path, tools.SpectrogramOpts{Title: title, Width: width})
+	img, err := a.toolRunner().Spectrogram(ctx, path, tools.SpectrogramOpts{Title: title, Width: width})
 	if err != nil {
 		return nil, err
 	}

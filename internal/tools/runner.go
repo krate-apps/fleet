@@ -10,6 +10,7 @@ import (
 	"os/exec"
 	"path/filepath"
 	"strings"
+	"sync"
 	"time"
 )
 
@@ -21,12 +22,17 @@ const (
 )
 
 // Runner executes embedded/configured helper binaries without a shell.
+// Path fields are safe to update via SetPaths while the process runs.
 type Runner struct {
+	mu sync.RWMutex
+
 	MktorrentPath   string
 	DumptorrentPath string
 	MediainfoPath   string
 	FfmpegPath      string
 	SoxPath         string
+	UnrarPath       string
+	RclonePath      string
 	// AllowedRoots limits filesystem paths for mktorrent source inputs.
 	AllowedRoots []string
 	// ArtifactsDir stores created .torrent files for download (job artifacts).
@@ -60,50 +66,16 @@ type DumpResult struct {
 
 // Status reports whether helpers are configured and executable.
 func (r *Runner) Status() map[string]any {
-	mediaPath := strings.TrimSpace(r.MediainfoPath)
-	if mediaPath == "" {
-		if p, err := exec.LookPath("mediainfo"); err == nil {
-			mediaPath = p
-		}
-	}
-	ffmpegPath := strings.TrimSpace(r.FfmpegPath)
-	if ffmpegPath == "" {
-		if p, err := exec.LookPath("ffmpeg"); err == nil {
-			ffmpegPath = p
-		}
-	}
-	soxPath := strings.TrimSpace(r.SoxPath)
-	if soxPath == "" {
-		if p, err := exec.LookPath("sox"); err == nil {
-			soxPath = p
-		}
-	}
+	p := r.Paths()
 	return map[string]any{
-		"mktorrent":   toolStatus(r.MktorrentPath),
-		"dumptorrent": toolStatus(r.DumptorrentPath),
-		"mediainfo":   toolStatus(mediaPath),
-		"ffmpeg":      toolStatus(ffmpegPath),
-		"sox":         toolStatus(soxPath),
+		"mktorrent":   toolStatusEntry(p.Mktorrent, ""),
+		"dumptorrent": toolStatusEntry(p.Dumptorrent, ""),
+		"mediainfo":   toolStatusEntry(p.Mediainfo, "mediainfo"),
+		"ffmpeg":      toolStatusEntry(p.Ffmpeg, "ffmpeg"),
+		"sox":         toolStatusEntry(p.Sox, "sox"),
+		"unrar":       toolStatusEntry(p.Unrar, "unrar"),
+		"rclone":      toolStatusEntry(p.Rclone, "rclone"),
 	}
-}
-
-func toolStatus(path string) map[string]any {
-	out := map[string]any{"path": path, "available": false}
-	if path == "" {
-		out["message"] = "not configured"
-		return out
-	}
-	st, err := os.Stat(path)
-	if err != nil {
-		out["message"] = err.Error()
-		return out
-	}
-	if st.IsDir() || st.Mode()&0o111 == 0 {
-		out["message"] = "not an executable file"
-		return out
-	}
-	out["available"] = true
-	return out
 }
 
 // DumpTorrent inspects a .torrent payload via dumptorrent.
@@ -112,7 +84,7 @@ func (r *Runner) DumpTorrent(ctx context.Context, torrentData []byte) (*DumpResu
 	if len(torrentData) == 0 {
 		return nil, fmt.Errorf("empty torrent data")
 	}
-	path := strings.TrimSpace(r.DumptorrentPath)
+	path := r.lockedPath(func(r *Runner) string { return r.DumptorrentPath })
 	if path == "" {
 		return nil, fmt.Errorf("dumptorrent not configured (set tools.dumptorrent)")
 	}
@@ -159,7 +131,7 @@ func (r *Runner) DumpTorrent(ctx context.Context, torrentData []byte) (*DumpResu
 
 // CreateTorrent builds a .torrent via the configured mktorrent JSON fork.
 func (r *Runner) CreateTorrent(ctx context.Context, in CreateInput) (*CreateResult, error) {
-	path := strings.TrimSpace(r.MktorrentPath)
+	path := r.lockedPath(func(r *Runner) string { return r.MktorrentPath })
 	if path == "" {
 		return nil, fmt.Errorf("mktorrent not configured (set tools.mktorrent)")
 	}

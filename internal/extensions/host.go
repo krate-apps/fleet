@@ -106,6 +106,28 @@ func NewHostWithOptions(ctx context.Context, store *storage.Store, opts HostOpti
 	return h
 }
 
+// SetWorkerEnvKey updates an env var passed to newly spawned workers (e.g. FLEET_TOOL_RCLONE).
+func (h *Host) SetWorkerEnvKey(key, value string) {
+	if h == nil {
+		return
+	}
+	key = strings.TrimSpace(key)
+	if key == "" {
+		return
+	}
+	h.mu.Lock()
+	defer h.mu.Unlock()
+	if h.workerEnv == nil {
+		h.workerEnv = map[string]string{}
+	}
+	value = strings.TrimSpace(value)
+	if value == "" {
+		delete(h.workerEnv, key)
+		return
+	}
+	h.workerEnv[key] = value
+}
+
 // Refresh scans roots for fleet.ext.yaml / extension.yaml packages and syncs SQLite.
 func (h *Host) Refresh() error {
 	if h == nil {

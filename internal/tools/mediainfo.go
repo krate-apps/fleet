@@ -32,7 +32,7 @@ func (r *Runner) MediaInfo(ctx context.Context, path string) (string, error) {
 		return "", fmt.Errorf("path must be a regular file")
 	}
 
-	bin := strings.TrimSpace(r.MediainfoPath)
+	bin := r.lockedPath(func(r *Runner) string { return r.MediainfoPath })
 	if bin == "" {
 		bin = "mediainfo"
 	}
