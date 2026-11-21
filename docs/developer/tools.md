@@ -8,20 +8,26 @@ Workers with `jobs.schedule` / `jobs.read` may call `fleet.jobs.create`, `fleet.
 
 ## mktorrent / dumptorrent
 
-Fleet ships reference CLIs:
+Fleet uses the official JSON-capable forks ([tomcdj71/mktorrent](https://github.com/tomcdj71/mktorrent), [tomcdj71/dumptorrent](https://github.com/tomcdj71/dumptorrent)):
 
 | Binary | Role |
 | --- | --- |
-| `bin/fleet-dumptorrent` | Dump `.torrent` as JSON (`--json` / `-j` / `-J`) |
-| `bin/fleet-mktorrent` | Create `.torrent` with JSON summary |
+| `bin/dumptorrent` | Dump `.torrent` as JSON (`--json` / `-j` / `-J`) |
+| `bin/mktorrent` | Create `.torrent` with JSON summary |
 
-Build: `make tools-json` (also pulled in by `make build`).
+Build from the monorepo checkouts under `deps/`:
+
+```bash
+make tools-json    # also pulled in by make build
+```
 
 ```yaml
 tools:
-  mktorrent: /opt/$USER/fleet/tools/fleet-mktorrent
-  dumptorrent: /opt/$USER/fleet/tools/fleet-dumptorrent
+  mktorrent: /opt/$USER/fleet/tools/mktorrent
+  dumptorrent: /opt/$USER/fleet/tools/dumptorrent
 ```
+
+Empty `tools.mktorrent` / `tools.dumptorrent` fall back to `mktorrent` / `dumptorrent` on `PATH`.
 
 Other helpers (`unrar`, `mediainfo`, `ffmpeg`, `sox`, `rclone`) are optional path entries under `tools:` and are path-guarded by `download_roots` where applicable.
 

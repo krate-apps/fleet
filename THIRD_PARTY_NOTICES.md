@@ -36,4 +36,7 @@ Dev/build tooling is predominantly MIT/Apache-2.0/BSD/ISC. See inventory file fo
 
 ## Optional external helpers (not Go modules)
 
-`mktorrent` / `dumptorrent` JSON forks are **optional** host binaries configured in `tools:`.
+`mktorrent` / `dumptorrent` are **optional** host binaries configured in `tools:`
+(recommended: [tomcdj71/mktorrent](https://github.com/tomcdj71/mktorrent) and
+[tomcdj71/dumptorrent](https://github.com/tomcdj71/dumptorrent) JSON-capable builds).
+Their licences are those of the respective upstream projects.

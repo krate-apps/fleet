@@ -14,8 +14,8 @@ rtorrent:
   download_roots: []
 
 tools:
-  mktorrent: /usr/local/bin/fleet-mktorrent
-  dumptorrent: /usr/local/bin/fleet-dumptorrent
+  mktorrent: /usr/local/bin/mktorrent
+  dumptorrent: /usr/local/bin/dumptorrent
 
 auth:
   disable: false

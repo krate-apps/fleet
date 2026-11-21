@@ -63,7 +63,7 @@ At the Fleet host root (`app/`): `install.sh`, `uninstall.sh`. systemd, seed con
 ## Tools
 
 ```bash
-make tools-json    # fleet-mktorrent / fleet-dumptorrent
+make tools-json    # bin/mktorrent + bin/dumptorrent (../deps or shallow clone into .deps/)
 ```
 
 See [Tools](tools.md).
