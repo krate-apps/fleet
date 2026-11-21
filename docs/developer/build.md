@@ -6,7 +6,7 @@ Canonical toolchain and local build steps for the Fleet **host** repository. Oth
 
 | Tool | Version | When needed |
 | --- | --- | --- |
-| Go | **1.22+** | Always (host binary, tests, tools) |
+| Go | **1.26+** | Always (host binary, tests, tools) |
 | Node.js | **26+** | Frontend build / typecheck / lint (`web/`) — not required to *run* a prebuilt binary |
 
 CI uses the same majors (see `.github/workflows/`).
