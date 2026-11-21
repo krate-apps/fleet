@@ -1,7 +1,7 @@
 # Fleet host image (linux/amd64). Clients (rTorrent / qBittorrent / Deluge /
 # Transmission) stay outside this image — see docs/user/docker.md.
 
-ARG GO_VERSION=1.22
+ARG GO_VERSION=1.26
 ARG NODE_VERSION=26
 
 # --- frontend ---
