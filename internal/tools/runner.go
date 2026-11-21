@@ -68,8 +68,8 @@ type DumpResult struct {
 func (r *Runner) Status() map[string]any {
 	p := r.Paths()
 	return map[string]any{
-		"mktorrent":   toolStatusEntry(p.Mktorrent, ""),
-		"dumptorrent": toolStatusEntry(p.Dumptorrent, ""),
+		"mktorrent":   toolStatusEntry(p.Mktorrent, "mktorrent"),
+		"dumptorrent": toolStatusEntry(p.Dumptorrent, "dumptorrent"),
 		"mediainfo":   toolStatusEntry(p.Mediainfo, "mediainfo"),
 		"ffmpeg":      toolStatusEntry(p.Ffmpeg, "ffmpeg"),
 		"sox":         toolStatusEntry(p.Sox, "sox"),
@@ -84,9 +84,9 @@ func (r *Runner) DumpTorrent(ctx context.Context, torrentData []byte) (*DumpResu
 	if len(torrentData) == 0 {
 		return nil, fmt.Errorf("empty torrent data")
 	}
-	path := r.lockedPath(func(r *Runner) string { return r.DumptorrentPath })
+	path := resolveNamed(r.lockedPath(func(r *Runner) string { return r.DumptorrentPath }), "dumptorrent")
 	if path == "" {
-		return nil, fmt.Errorf("dumptorrent not configured (set tools.dumptorrent)")
+		return nil, fmt.Errorf("dumptorrent not configured (set tools.dumptorrent or install dumptorrent on PATH)")
 	}
 	if _, err := os.Stat(path); err != nil {
 		return nil, fmt.Errorf("dumptorrent unavailable: %w", err)
@@ -131,9 +131,9 @@ func (r *Runner) DumpTorrent(ctx context.Context, torrentData []byte) (*DumpResu
 
 // CreateTorrent builds a .torrent via the configured mktorrent JSON fork.
 func (r *Runner) CreateTorrent(ctx context.Context, in CreateInput) (*CreateResult, error) {
-	path := r.lockedPath(func(r *Runner) string { return r.MktorrentPath })
+	path := resolveNamed(r.lockedPath(func(r *Runner) string { return r.MktorrentPath }), "mktorrent")
 	if path == "" {
-		return nil, fmt.Errorf("mktorrent not configured (set tools.mktorrent)")
+		return nil, fmt.Errorf("mktorrent not configured (set tools.mktorrent or install mktorrent on PATH)")
 	}
 	if _, err := os.Stat(path); err != nil {
 		return nil, fmt.Errorf("mktorrent unavailable: %w", err)
@@ -200,7 +200,7 @@ func (r *Runner) CreateTorrent(ctx context.Context, in CreateInput) (*CreateResu
 	if strings.TrimSpace(in.Comment) != "" {
 		args = append(args, "-c", in.Comment)
 	}
-	args = append(args, "-o", outPath)
+	args = append(args, "-f", "-o", outPath)
 	args = append(args, cleanPaths...)
 
 	callCtx := ctx

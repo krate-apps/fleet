@@ -6,6 +6,8 @@ node_modules/
 dist/
 web/dist/
 bin/
+.deps/
+
 fleet-lab.tgz
 coverage/
 *.tsbuildinfo

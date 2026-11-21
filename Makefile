@@ -12,6 +12,13 @@ GO_PACKAGES := $(shell go list ./... | grep -v /node_modules/)
 
 # Workspace extension checkouts (optional local helper).
 EXT_ROOT ?= $(abspath ../extensions)
+# Official JSON forks (tomcdj71): prefer monorepo ../deps, else .deps/ (CI clone).
+DEPS_ROOT ?= $(abspath ../deps)
+MKTORRENT_SRC ?= $(DEPS_ROOT)/mktorrent
+DUMPTORRENT_SRC ?= $(DEPS_ROOT)/dumptorrent
+MKTORRENT_REPO ?= https://github.com/tomcdj71/mktorrent.git
+DUMPTORRENT_REPO ?= https://github.com/tomcdj71/dumptorrent.git
+DEPS_FALLBACK ?= $(CURDIR)/.deps
 
 .PHONY: all build web embed test lint fmt tidy clean run ci ext-workers tools-json perf-cache e2e-smoke load-smoke seed-fixtures cleanup-fixtures rtprobe certify test-scripts pack
 
@@ -44,11 +51,40 @@ ext-workers:
 	  (cd "$$repo" && go build -trimpath -o "bin/$$worker" "./cmd/$$worker"); \
 	done
 
-# OPEN-11 reference JSON CLIs (Fleet-owned; not third-party classic tools).
+# OPEN-11 JSON helpers: build official tomcdj71 forks (monorepo deps/ or shallow clone).
 tools-json:
-	mkdir -p bin
-	go build -trimpath -ldflags "$(LDFLAGS)" -o bin/fleet-dumptorrent ./cmd/fleet-dumptorrent
-	go build -trimpath -ldflags "$(LDFLAGS)" -o bin/fleet-mktorrent ./cmd/fleet-mktorrent
+	@set -e; \
+	mk_src="$(MKTORRENT_SRC)"; \
+	dump_src="$(DUMPTORRENT_SRC)"; \
+	if [ ! -f "$$mk_src/CMakeLists.txt" ]; then \
+	  mk_src="$(DEPS_FALLBACK)/mktorrent"; \
+	  mkdir -p "$(DEPS_FALLBACK)"; \
+	  if [ ! -f "$$mk_src/CMakeLists.txt" ]; then \
+	    echo "clone $$(basename "$$mk_src") → $$mk_src"; \
+	    git clone --depth 1 "$(MKTORRENT_REPO)" "$$mk_src"; \
+	  fi; \
+	fi; \
+	if [ ! -f "$$dump_src/CMakeLists.txt" ]; then \
+	  dump_src="$(DEPS_FALLBACK)/dumptorrent"; \
+	  mkdir -p "$(DEPS_FALLBACK)"; \
+	  if [ ! -f "$$dump_src/CMakeLists.txt" ]; then \
+	    echo "clone $$(basename "$$dump_src") → $$dump_src"; \
+	    git clone --depth 1 "$(DUMPTORRENT_REPO)" "$$dump_src"; \
+	  fi; \
+	fi; \
+	mkdir -p bin; \
+	cmake -S "$$mk_src" -B "$$mk_src/build-fleet" \
+		-DCMAKE_BUILD_TYPE=Release \
+		-DMKTORRENT_OPENSSL=ON \
+		-DMKTORRENT_PTHREADS=ON \
+		-DMKTORRENT_LONG_OPTIONS=ON; \
+	cmake --build "$$mk_src/build-fleet" -j"$$(nproc 2>/dev/null || echo 2)"; \
+	cmake -S "$$dump_src" -B "$$dump_src/build-fleet" \
+		-DCMAKE_BUILD_TYPE=Release; \
+	cmake --build "$$dump_src/build-fleet" -j"$$(nproc 2>/dev/null || echo 2)"; \
+	install -m 0755 "$$mk_src/build-fleet/mktorrent" bin/mktorrent; \
+	install -m 0755 "$$dump_src/build-fleet/dumptorrent" bin/dumptorrent
+
 
 # Optional public UI base for path-mode reverse proxies, e.g. FLEET_UI_BASE=/trevor/fleet/
 web:
@@ -105,7 +141,7 @@ load-smoke:
 	bash tests/load/http_smoke.sh
 
 # Load fixtures (requires running Fleet + JSON mktorrent).
-# Example: BASE_URL=http://127.0.0.1:8080 COUNT=1000 MKTORRENT=./bin/fleet-mktorrent make seed-fixtures
+# Example: BASE_URL=http://127.0.0.1:8080 COUNT=1000 MKTORRENT=./bin/mktorrent make seed-fixtures
 seed-fixtures:
 	bash tests/load/seed_rtorrent_fixtures.sh
 

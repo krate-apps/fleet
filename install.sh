@@ -146,7 +146,7 @@ if [[ -f "${DOCS_EXAMPLES}/config.example.yaml" ]]; then
 fi
 
 BIN_DIR="$(cd "$(dirname "${FLEET_BIN}")" && pwd)"
-for helper in fleet-mktorrent fleet-dumptorrent rtprobe; do
+for helper in mktorrent dumptorrent rtprobe; do
   if [[ -x "${BIN_DIR}/${helper}" ]]; then
     install -m 0755 "${BIN_DIR}/${helper}" "${RELEASE_DIR}/tools/${helper}"
   fi

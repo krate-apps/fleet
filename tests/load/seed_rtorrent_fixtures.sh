@@ -8,7 +8,7 @@ COUNT="${COUNT:-1000}"
 START_INDEX="${START_INDEX:-1}"
 PREFIX="${PREFIX:-fleet-perf}"
 WORKDIR="${WORKDIR:-}"
-MKTORRENT="${MKTORRENT:-fleet-mktorrent}"
+MKTORRENT="${MKTORRENT:-mktorrent}"
 KEEP="${KEEP:-0}"
 
 usage() {
@@ -21,7 +21,7 @@ Env:
   START_INDEX   First numeric suffix (default 1); use to append batches
   PREFIX        Name prefix for fixture files (default fleet-perf)
   WORKDIR       Scratch dir (default mktemp under /tmp)
-  MKTORRENT     JSON mktorrent CLI (default fleet-mktorrent)
+  MKTORRENT     JSON mktorrent CLI (default mktorrent on PATH)
   KEEP          If 1, keep workdir torrents on disk after load
 EOF
 }

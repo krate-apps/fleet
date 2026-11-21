@@ -22,7 +22,7 @@ trap 'rm -rf "${STAGE}"' EXIT
 DEST="${STAGE}/fleet"
 mkdir -p "${DEST}/bin"
 
-cp -a bin/fleet bin/fleet-mktorrent bin/fleet-dumptorrent bin/rtprobe "${DEST}/bin/"
+cp -a bin/fleet bin/mktorrent bin/dumptorrent bin/rtprobe "${DEST}/bin/"
 chmod +x "${DEST}/bin/"*
 cp -a install.sh uninstall.sh "${DEST}/"
 cp -a LICENSE README.md THIRD_PARTY_NOTICES.md "${DEST}/"
