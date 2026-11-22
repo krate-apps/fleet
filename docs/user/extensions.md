@@ -27,6 +27,8 @@ Common packages (listing file → id):
 | `bucket/org.fleet.notifications.json` | `org.fleet.notifications` | ntfy / Gotify / Slack / Pushover / email |
 | `bucket/org.fleet.servarrbridge.json` | `org.fleet.servarrbridge` | Sonarr/Radarr/Prowlarr/Lidarr webhooks |
 | `bucket/org.fleet.nzbbridge.json` | `org.fleet.nzbbridge` | SABnzbd/NZBGet → torrent intake |
+| `bucket/org.fleet.jdownloader.json` | `org.fleet.jdownloader` | MyJDownloader queue + controls |
+| `bucket/org.fleet.pyload.json` | `org.fleet.pyload` | Local pyLoad queue + controls |
 | `bucket/org.fleet.traffic.json` | `org.fleet.traffic` | Day/month/year + per-tracker totals |
 
 Each repository README links the matching listing under `bucket/org.fleet.<slug>.json` and documents **Configuration** parameters (forms, actions, Activate-only on/off) in that README.
