@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { onMounted, ref, watch } from "vue";
 import { fetchFSList, fetchFSRoots, type FSEntry } from "@/api/client";
+import ToolbarIcon from "@/components/ToolbarIcon.vue";
 
 const props = defineProps<{
   modelValue: string;
@@ -135,9 +136,14 @@ onMounted(() => {
         >
           <button
             type="button"
+            class="fleet-path-picker-entry"
             @click="select(e)"
           >
-            {{ e.isDir ? "[dir] " : "" }}{{ e.name }}
+            <ToolbarIcon
+              class="fleet-path-picker-icon"
+              :name="e.isDir ? 'folder' : 'file'"
+            />
+            <span>{{ e.name }}</span>
           </button>
         </li>
       </ul>
@@ -151,6 +157,23 @@ onMounted(() => {
   flex-direction: column;
   gap: 0.35rem;
   width: 100%;
+}
+.fleet-path-picker-entry {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  max-width: 100%;
+}
+.fleet-path-picker-entry span {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.fleet-path-picker-icon {
+  flex-shrink: 0;
+  width: 1rem;
+  height: 1rem;
+  opacity: 0.85;
 }
 .fleet-path-picker-row {
   display: flex;

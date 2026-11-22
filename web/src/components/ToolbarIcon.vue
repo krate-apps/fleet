@@ -11,6 +11,8 @@ defineProps<{
     | "extensions"
     | "settings"
     | "files"
+    | "folder"
+    | "file"
     | "close"
     | "github";
 }>();
@@ -99,9 +101,15 @@ defineProps<{
       />
     </template>
 
-    <!-- Files / folder -->
-    <template v-else-if="name === 'files'">
+    <!-- Files nav / folder (same glyph) -->
+    <template v-else-if="name === 'files' || name === 'folder'">
       <path d="M3 7.5A1.5 1.5 0 0 1 4.5 6H9l2 2h8.5A1.5 1.5 0 0 1 21 9.5v8A1.5 1.5 0 0 1 19.5 19h-15A1.5 1.5 0 0 1 3 17.5v-10z" />
+    </template>
+
+    <!-- Generic file / document -->
+    <template v-else-if="name === 'file'">
+      <path d="M14 3H7.5A1.5 1.5 0 0 0 6 4.5v15A1.5 1.5 0 0 0 7.5 21h9a1.5 1.5 0 0 0 1.5-1.5V8.5L14 3z" />
+      <path d="M14 3v5.5h5.5" />
     </template>
 
     <!-- Close / dismiss -->

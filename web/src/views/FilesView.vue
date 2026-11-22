@@ -20,6 +20,7 @@ import {
 } from "@/api/client";
 import AppShell from "@/components/AppShell.vue";
 import DownloadQueuePanel from "@/components/DownloadQueuePanel.vue";
+import ToolbarIcon from "@/components/ToolbarIcon.vue";
 import { useExtensionUI } from "@/composables/useExtensionUI";
 import {
   DOWNLOAD_QUEUE_PROVIDERS,
@@ -564,8 +565,15 @@ watch(
                     @change="toggleCheck(e, $event)"
                   >
                 </td>
-                <td :title="e.path">
-                  {{ e.isDir ? "[dir] " : "" }}{{ entryDisplayName(e) }}
+                <td
+                  class="fleet-files-name"
+                  :title="e.path"
+                >
+                  <ToolbarIcon
+                    class="fleet-files-type-icon"
+                    :name="e.isDir ? 'folder' : 'file'"
+                  />
+                  <span>{{ entryDisplayName(e) }}</span>
                 </td>
                 <td>{{ e.isDir ? "—" : e.size }}</td>
                 <td>{{ e.modTime ? new Date(e.modTime * 1000).toLocaleString() : "—" }}</td>
@@ -737,6 +745,23 @@ watch(
   padding: 0.35rem 0.5rem;
   border-bottom: 1px solid var(--fleet-border-soft);
   vertical-align: middle;
+}
+.fleet-files-name {
+  display: flex;
+  align-items: center;
+  gap: 0.45rem;
+  min-width: 0;
+}
+.fleet-files-name span {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.fleet-files-type-icon {
+  flex-shrink: 0;
+  opacity: 0.85;
+  width: 1rem;
+  height: 1rem;
 }
 .fleet-files-table tbody tr {
   height: auto;
