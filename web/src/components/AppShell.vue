@@ -377,15 +377,6 @@ function onSearchInput(ev: Event) {
         >
           {{ t("nav.files") }}
         </RouterLink>
-        <RouterLink
-          class="fleet-icon-btn fleet-topbar-files-icon"
-          to="/files"
-          :title="t('files.title')"
-          :aria-label="t('files.title')"
-          @click="closeMobileNav"
-        >
-          <ToolbarIcon name="files" />
-        </RouterLink>
 
         <button
           type="button"

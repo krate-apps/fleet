@@ -86,11 +86,6 @@
   min-width: 0;
 }
 
-/* Desktop: Files text link; icon variant is for phone topbar. */
-.fleet-topbar-files-icon {
-  display: none;
-}
-
 /* Desktop: chrome Torrents/Files live in the topbar, not the sidebar. */
 .fleet-mobile-chrome-nav {
   display: none;
@@ -1593,14 +1588,6 @@ textarea.fleet-decl-control,
 }
 
 @media (max-width: 560px) {
-  .fleet-topbar-files {
-    display: none;
-  }
-
-  .fleet-topbar-files-icon {
-    display: inline-flex;
-  }
-
   .fleet-search {
     max-width: 120px;
     min-width: 56px;
