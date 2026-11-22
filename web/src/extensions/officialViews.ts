@@ -4,6 +4,8 @@ export const OFFICIAL_FIRST_PARTY_VIEWS = new Set<string>([
   "org.fleet.traffic",
   "org.fleet.websearch",
   "org.fleet.labelbridge",
+  "org.fleet.jdownloader",
+  "org.fleet.pyload",
 ]);
 
 export function hasOfficialFirstPartyView(extensionId: string): boolean {

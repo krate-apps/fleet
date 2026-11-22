@@ -27,6 +27,8 @@ import AutodownloadConfigureView from "@/views/AutodownloadConfigureView.vue";
 import TrafficConfigureView from "@/views/TrafficConfigureView.vue";
 import WebsearchConfigureView from "@/views/WebsearchConfigureView.vue";
 import LabelbridgeConfigureView from "@/views/LabelbridgeConfigureView.vue";
+import JdownloaderConfigureView from "@/views/JdownloaderConfigureView.vue";
+import PyloadConfigureView from "@/views/PyloadConfigureView.vue";
 
 defineEmits<{
   close: [];
@@ -415,6 +417,12 @@ defineExpose({
       />
       <LabelbridgeConfigureView
         v-else-if="hasOfficialFirstPartyView(configuring.extensionId) && configuring.extensionId === 'org.fleet.labelbridge'"
+      />
+      <JdownloaderConfigureView
+        v-else-if="hasOfficialFirstPartyView(configuring.extensionId) && configuring.extensionId === 'org.fleet.jdownloader'"
+      />
+      <PyloadConfigureView
+        v-else-if="hasOfficialFirstPartyView(configuring.extensionId) && configuring.extensionId === 'org.fleet.pyload'"
       />
       <ExtensionConfigBody
         v-else
