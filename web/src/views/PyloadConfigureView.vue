@@ -108,6 +108,7 @@ onMounted(async () => {
           :disabled="busy"
         >
         <span class="py-cfg__help">{{ t("pyload.baseUrlHelp") }}</span>
+        <span class="py-cfg__help">{{ t("pyload.apiKeyHelp") }}</span>
       </label>
       <label class="py-cfg__row">
         {{ t("pyload.username") }}
