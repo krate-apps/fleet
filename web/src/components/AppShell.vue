@@ -29,6 +29,8 @@ const props = defineProps<{
   seedingCount?: number;
   clientsConnected?: number;
   clientsTotal?: number;
+  /** Active hoster/NZB queue downloaders (JD, pyLoad, …). */
+  downloadersConnected?: number;
   clientProblems?: ClientProblem[];
   initialSearch?: string;
 }>();
@@ -119,16 +121,23 @@ const downRateLabel = computed(() => formatRate(props.downRate ?? 0));
 const upRateLabel = computed(() => formatRate(props.upRate ?? 0));
 const clientsConnected = computed(() => props.clientsConnected ?? 0);
 const clientsTotal = computed(() => props.clientsTotal ?? 0);
+const downloadersConnected = computed(() => props.downloadersConnected ?? 0);
 const problems = computed(() => props.clientProblems ?? []);
 const clientsClass = computed(() => {
-  if (clientsTotal.value === 0) return "bad";
+  const any = clientsConnected.value + downloadersConnected.value;
+  if (clientsTotal.value === 0 && downloadersConnected.value === 0) return "bad";
   if (problems.value.length > 0) return "warn";
-  if (clientsConnected.value > 0) return "ok";
+  if (any > 0) return "ok";
   return "bad";
 });
-const clientsText = computed(() =>
-  t("status.clientsConnected", { n: clientsConnected.value }),
-);
+const clientsText = computed(() => {
+  const torrent = clientsConnected.value;
+  const downloaders = downloadersConnected.value;
+  if (downloaders > 0) {
+    return t("status.clientsLine", { torrent, downloaders });
+  }
+  return t("status.clientsConnected", { n: torrent });
+});
 const problemsText = computed(() => {
   const list = problems.value;
   if (!list.length) return "";

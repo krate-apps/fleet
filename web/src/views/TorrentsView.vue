@@ -13,6 +13,7 @@ import { useResizableColumns } from "@/composables/useResizableColumns";
 import { useShellModals } from "@/composables/useShellModals";
 import { useTorrentSync } from "@/composables/useTorrentSync";
 import { useUiDensity } from "@/composables/useUiDensity";
+import { DOWNLOAD_QUEUE_PROVIDERS } from "@/extensions/downloadQueues";
 import { useI18n } from "@/i18n/useI18n";
 import { dominantClient } from "@/lib/clientFamily";
 import {
@@ -166,6 +167,12 @@ const { anyModalOpen } = useShellModals();
 const { density, rowHeightPx } = useUiDensity();
 const { torrents, engine, error: syncError, refresh } = useTorrentSync();
 const { active: activeExtensions, selectionActions } = useExtensionUI();
+const downloadersConnected = computed(
+  () =>
+    DOWNLOAD_QUEUE_PROVIDERS.filter((p) =>
+      activeExtensions.value.some((e) => e.id === p.extensionId),
+    ).length,
+);
 const clientLogosEnabled = computed(() =>
   activeExtensions.value.some((e) => e.id === "org.fleet.clientlogos"),
 );
@@ -1434,6 +1441,7 @@ function torrentKey(t: Torrent) {
     :seeding-count="counts.seeding"
     :clients-connected="engine?.clientsConnected ?? (engineConnected ? 1 : 0)"
     :clients-total="engine?.clientsTotal ?? (engineConnected ? 1 : 0)"
+    :downloaders-connected="downloadersConnected"
     :client-problems="engine?.problems ?? []"
     :initial-search="query"
     @add="showAdd = true"

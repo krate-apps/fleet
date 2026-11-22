@@ -51,6 +51,7 @@ const shareOpen = ref(false);
 const shareTtlSec = ref(86400);
 const shareMaxDownloads = ref(0);
 const engine = ref<CapabilitiesResponse | null>(null);
+const selectedAppId = ref("");
 let engineTimer: ReturnType<typeof setInterval> | undefined;
 
 async function refreshEngine() {
@@ -65,6 +66,8 @@ const queueProviders = computed(() => {
   const activeIds = new Set(active.value.map((e) => e.id));
   return DOWNLOAD_QUEUE_PROVIDERS.filter((p) => activeIds.has(p.extensionId));
 });
+
+const downloadersConnected = computed(() => queueProviders.value.length);
 
 const activeTab = computed(() => {
   const raw = typeof route.query.tab === "string" ? route.query.tab : FILES_TAB_FOLDERS;
@@ -127,16 +130,65 @@ const ROOT_FAMILY: Record<string, string> = {
   sabnzbd: "SABnzbd",
 };
 
+type FilesApp = {
+  id: string;
+  label: string;
+  roots: string[];
+};
+
+function pathParts(path: string): string[] {
+  return path.replace(/\\/g, "/").replace(/\/+$/, "").split("/").filter(Boolean);
+}
+
+function rootAppId(path: string): string {
+  const parts = pathParts(path);
+  const parent = (parts[parts.length - 2] || "").toLowerCase();
+  if (ROOT_FAMILY[parent]) return parent;
+  return parts[parts.length - 2] || parts[parts.length - 1] || path;
+}
+
+function rootFolderName(path: string): string {
+  const parts = pathParts(path);
+  return parts[parts.length - 1] || path;
+}
+
 /** Distinct label for a download_roots path. */
 function rootLabel(path: string): string {
-  const norm = path.replace(/\\/g, "/").replace(/\/+$/, "");
-  const parts = norm.split("/").filter(Boolean);
-  const base = parts[parts.length - 1] || norm;
+  const parts = pathParts(path);
+  const base = parts[parts.length - 1] || path;
   const parent = parts[parts.length - 2] || "";
   const family = ROOT_FAMILY[parent.toLowerCase()];
   if (family) return `${family} · ${base}`;
   if (parent) return `${parent}/${base}`;
   return base;
+}
+
+const apps = computed((): FilesApp[] => {
+  const byId = new Map<string, FilesApp>();
+  for (const r of roots.value) {
+    const id = rootAppId(r);
+    const label = ROOT_FAMILY[id] || id;
+    const cur = byId.get(id);
+    if (cur) cur.roots.push(r);
+    else byId.set(id, { id, label, roots: [r] });
+  }
+  return [...byId.values()].sort((a, b) => a.label.localeCompare(b.label));
+});
+
+const selectedApp = computed(() => apps.value.find((a) => a.id === selectedAppId.value) ?? null);
+
+const selectedAppRoots = computed(() => selectedApp.value?.roots ?? []);
+
+function preferRoot(appRoots: string[]): string {
+  const downloads = appRoots.find((r) => /\/downloads$/i.test(r) || /\/Downloads$/.test(r));
+  return downloads || appRoots[0] || "";
+}
+
+function selectApp(app: FilesApp) {
+  selectedAppId.value = app.id;
+  setTab(FILES_TAB_FOLDERS);
+  const target = preferRoot(app.roots);
+  if (target) void loadDir(target);
 }
 
 function isRootPath(path: string): boolean {
@@ -151,6 +203,11 @@ function entryDisplayName(e: FSEntry): string {
 async function loadRoots() {
   const data = await fetchFSRoots();
   roots.value = data.roots ?? [];
+  if (!selectedAppId.value && apps.value.length) {
+    selectedAppId.value = apps.value[0]!.id;
+  } else if (selectedAppId.value && !apps.value.some((a) => a.id === selectedAppId.value)) {
+    selectedAppId.value = apps.value[0]?.id ?? "";
+  }
 }
 
 async function loadDir(path = "") {
@@ -350,6 +407,12 @@ watch(
     }
   },
 );
+
+watch(cwd, (path) => {
+  if (!path) return;
+  const match = roots.value.find((r) => path === r || path.startsWith(r.replace(/\/+$/, "") + "/"));
+  if (match) selectedAppId.value = rootAppId(match);
+});
 </script>
 
 <template>
@@ -357,29 +420,46 @@ watch(
     :torrent-count="0"
     :clients-connected="engine?.clientsConnected ?? 0"
     :clients-total="engine?.clientsTotal ?? 0"
+    :downloaders-connected="downloadersConnected"
     :client-problems="engine?.problems ?? []"
   >
     <template #sidebar>
       <div class="fleet-files-side">
         <p class="fleet-files-label">
-          {{ t("files.roots") }}
+          {{ t("files.apps") }}
         </p>
         <button
-          v-for="r in roots"
-          :key="r"
+          v-for="app in apps"
+          :key="app.id"
           type="button"
           class="fleet-files-root"
-          :title="r"
-          @click="setTab(FILES_TAB_FOLDERS); loadDir(r)"
+          :data-active="selectedAppId === app.id ? 'true' : undefined"
+          @click="selectApp(app)"
         >
-          {{ rootLabel(r) }}
+          {{ app.label }}
         </button>
         <p
-          v-if="!roots.length"
+          v-if="!apps.length"
           class="fleet-muted"
         >
-          {{ t("files.noRoots") }}
+          {{ t("files.noApps") }}
         </p>
+        <template v-if="selectedAppRoots.length">
+          <p class="fleet-files-label fleet-files-label-sub">
+            {{ t("files.locations") }}
+          </p>
+          <button
+            v-for="r in selectedAppRoots"
+            :key="r"
+            type="button"
+            class="fleet-files-root fleet-files-location"
+            :data-active="cwd === r ? 'true' : undefined"
+            :title="r"
+            @click="setTab(FILES_TAB_FOLDERS); loadDir(r)"
+          >
+            {{ rootFolderName(r) }}
+          </button>
+        </template>
       </div>
     </template>
 
@@ -407,9 +487,6 @@ watch(
           {{ t(p.labelKey) }}
         </button>
       </nav>
-      <p class="fleet-files-tabs-hint">
-        {{ t("files.tabsHint") }}
-      </p>
 
       <template v-if="isFoldersTab">
         <header class="fleet-files-toolbar">
@@ -662,12 +739,6 @@ watch(
   border-bottom: 1px solid var(--fleet-border-soft, color-mix(in srgb, currentColor 12%, transparent));
   padding-bottom: 0.35rem;
 }
-.fleet-files-tabs-hint {
-  margin: 0;
-  font-size: 0.8rem;
-  opacity: 0.72;
-  line-height: 1.35;
-}
 .fleet-files-tab {
   appearance: none;
   border: 0;
@@ -808,6 +879,9 @@ watch(
   letter-spacing: 0.04em;
   color: var(--fleet-fg-muted);
 }
+.fleet-files-label-sub {
+  margin-top: 0.75rem;
+}
 .fleet-files-root {
   text-align: left;
   background: transparent;
@@ -817,9 +891,18 @@ watch(
   cursor: pointer;
   font-size: 0.8rem;
   word-break: break-all;
+  border-radius: 0.25rem;
 }
 .fleet-files-root:hover {
   color: var(--fleet-primary-text);
+}
+.fleet-files-root[data-active="true"] {
+  background: var(--fleet-surface-2, color-mix(in srgb, currentColor 8%, transparent));
+  color: var(--fleet-primary-text, inherit);
+}
+.fleet-files-location {
+  padding-left: 0.5rem;
+  opacity: 0.9;
 }
 .fleet-files-shares ul {
   list-style: none;
