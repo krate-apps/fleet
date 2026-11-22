@@ -216,8 +216,12 @@ func getClient(st settings) (*pyClient, error) {
 	if strings.TrimSpace(st.BaseURL) == "" {
 		return nil, fmt.Errorf("configure pyLoad base URL")
 	}
-	if strings.TrimSpace(st.Username) == "" || strings.TrimSpace(st.Password) == "" {
-		return nil, fmt.Errorf("configure pyLoad username and password")
+	pass := strings.TrimSpace(st.Password)
+	if pass == "" {
+		return nil, fmt.Errorf("configure pyLoad password or pl_ API key")
+	}
+	if !strings.HasPrefix(pass, "pl_") && strings.TrimSpace(st.Username) == "" {
+		return nil, fmt.Errorf("configure pyLoad username and password (or a pl_ API key)")
 	}
 	clientMu.Lock()
 	defer clientMu.Unlock()

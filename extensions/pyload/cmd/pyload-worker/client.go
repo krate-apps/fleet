@@ -30,6 +30,7 @@ type pyClient struct {
 	base       *url.URL
 	username   string
 	password   string
+	apiKey     string // pyLoad 0.5+ X-API-Key (pl_…)
 	httpClient *http.Client
 	loggedIn   bool
 }
@@ -43,15 +44,20 @@ func newPyClient(baseURL, username, password string) (*pyClient, error) {
 	if err != nil {
 		return nil, err
 	}
-	return &pyClient{
+	pass := strings.TrimSpace(password)
+	cli := &pyClient{
 		base:     u,
 		username: username,
-		password: password,
+		password: pass,
 		httpClient: &http.Client{
 			Timeout: 15 * time.Second,
 			Jar:     jar,
 		},
-	}, nil
+	}
+	if strings.HasPrefix(pass, "pl_") {
+		cli.apiKey = pass
+	}
+	return cli, nil
 }
 
 func (c *pyClient) login() error {
@@ -61,6 +67,25 @@ func (c *pyClient) login() error {
 }
 
 func (c *pyClient) loginLocked() error {
+	if c.apiKey != "" {
+		// Validate key with a cheap authenticated call.
+		req, err := http.NewRequest(http.MethodGet, joinAPI(c.base, "/api/getServerVersion"), nil)
+		if err != nil {
+			return err
+		}
+		req.Header.Set("X-API-Key", c.apiKey)
+		resp, err := c.httpClient.Do(req)
+		if err != nil {
+			return err
+		}
+		defer resp.Body.Close()
+		body, _ := io.ReadAll(io.LimitReader(resp.Body, 1<<20))
+		if resp.StatusCode >= 400 {
+			return fmt.Errorf("pyLoad API key HTTP %d: %s", resp.StatusCode, truncate(string(body), 160))
+		}
+		c.loggedIn = true
+		return nil
+	}
 	form := url.Values{}
 	form.Set("username", c.username)
 	form.Set("password", c.password)
@@ -79,12 +104,18 @@ func (c *pyClient) loginLocked() error {
 		return fmt.Errorf("pyLoad login HTTP %d: %s", resp.StatusCode, truncate(string(body), 160))
 	}
 	trim := strings.TrimSpace(string(body))
-	if trim == "false" || trim == `"false"` {
-		return fmt.Errorf("pyLoad login failed (bad credentials)")
+	if trim == "false" || trim == `"false"` || strings.Contains(trim, "Obsolete API") {
+		return fmt.Errorf("pyLoad login failed (use a pl_ API key for pyLoad 0.5+, or check credentials)")
 	}
 	// Some builds return true / "true" / JSON true.
 	c.loggedIn = true
 	return nil
+}
+
+func (c *pyClient) applyAuth(req *http.Request) {
+	if c.apiKey != "" {
+		req.Header.Set("X-API-Key", c.apiKey)
+	}
 }
 
 func (c *pyClient) ensureLogin() error {
@@ -106,6 +137,7 @@ func (c *pyClient) getJSON(path string) (json.RawMessage, error) {
 	if err != nil {
 		return nil, err
 	}
+	c.applyAuth(req)
 	resp, err := c.httpClient.Do(req)
 	if err != nil {
 		return nil, err
@@ -144,6 +176,7 @@ func (c *pyClient) postJSON(path string, payload any) (json.RawMessage, error) {
 	if err != nil {
 		return nil, err
 	}
+	c.applyAuth(req)
 	if payload != nil {
 		req.Header.Set("Content-Type", contentType)
 	}
@@ -173,6 +206,7 @@ func (c *pyClient) callForm(path string, form url.Values) (json.RawMessage, erro
 	if err != nil {
 		return nil, err
 	}
+	c.applyAuth(req)
 	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
 	resp, err := c.httpClient.Do(req)
 	if err != nil {
