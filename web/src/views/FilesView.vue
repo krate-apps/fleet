@@ -114,6 +114,29 @@ function isVideoName(name: string) {
   return /\.(mp4|webm|mkv|avi)$/i.test(name);
 }
 
+/** Distinct label for a download_roots path (avoids duplicate "Downloads" basenames). */
+function rootLabel(path: string): string {
+  const norm = path.replace(/\\/g, "/").replace(/\/+$/, "");
+  const parts = norm.split("/").filter(Boolean);
+  const base = parts[parts.length - 1] || norm;
+  const parent = parts[parts.length - 2] || "";
+  const parentLc = parent.toLowerCase();
+  if (parentLc === "rtorrent") return `rTorrent · ${base}`;
+  if (parentLc === "jdownloader") return `JDownloader · ${base}`;
+  if (parentLc === "pyload") return `pyLoad · ${base}`;
+  if (parent) return `${parent}/${base}`;
+  return base;
+}
+
+function isRootPath(path: string): boolean {
+  return roots.value.some((r) => r === path);
+}
+
+function entryDisplayName(e: FSEntry): string {
+  if (isRootPath(e.path)) return rootLabel(e.path);
+  return e.name;
+}
+
 async function loadRoots() {
   const data = await fetchFSRoots();
   roots.value = data.roots ?? [];
@@ -335,9 +358,10 @@ watch(
           :key="r"
           type="button"
           class="fleet-files-root"
+          :title="r"
           @click="setTab(FILES_TAB_FOLDERS); loadDir(r)"
         >
-          {{ r }}
+          {{ rootLabel(r) }}
         </button>
         <p
           v-if="!roots.length"
@@ -372,6 +396,9 @@ watch(
           {{ t(p.labelKey) }}
         </button>
       </nav>
+      <p class="fleet-files-tabs-hint">
+        {{ t("files.tabsHint") }}
+      </p>
 
       <template v-if="isFoldersTab">
         <header class="fleet-files-toolbar">
@@ -527,7 +554,9 @@ watch(
                     @change="toggleCheck(e, $event)"
                   >
                 </td>
-                <td>{{ e.isDir ? "[dir] " : "" }}{{ e.name }}</td>
+                <td :title="e.path">
+                  {{ e.isDir ? "[dir] " : "" }}{{ entryDisplayName(e) }}
+                </td>
                 <td>{{ e.isDir ? "—" : e.size }}</td>
                 <td>{{ e.modTime ? new Date(e.modTime * 1000).toLocaleString() : "—" }}</td>
               </tr>
@@ -614,6 +643,12 @@ watch(
   gap: 0.35rem;
   border-bottom: 1px solid var(--fleet-border-soft, color-mix(in srgb, currentColor 12%, transparent));
   padding-bottom: 0.35rem;
+}
+.fleet-files-tabs-hint {
+  margin: 0;
+  font-size: 0.8rem;
+  opacity: 0.72;
+  line-height: 1.35;
 }
 .fleet-files-tab {
   appearance: none;
