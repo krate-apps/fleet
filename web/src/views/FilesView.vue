@@ -114,16 +114,26 @@ function isVideoName(name: string) {
   return /\.(mp4|webm|mkv|avi)$/i.test(name);
 }
 
-/** Distinct label for a download_roots path (avoids duplicate "Downloads" basenames). */
+/** Krate medias/<client>/… → display family (avoids duplicate "Downloads" basenames). */
+const ROOT_FAMILY: Record<string, string> = {
+  rtorrent: "rTorrent",
+  deluge: "Deluge",
+  qbittorrent: "qBittorrent",
+  transmission: "Transmission",
+  jdownloader: "JDownloader",
+  pyload: "pyLoad",
+  nzbget: "NZBGet",
+  sabnzbd: "SABnzbd",
+};
+
+/** Distinct label for a download_roots path. */
 function rootLabel(path: string): string {
   const norm = path.replace(/\\/g, "/").replace(/\/+$/, "");
   const parts = norm.split("/").filter(Boolean);
   const base = parts[parts.length - 1] || norm;
   const parent = parts[parts.length - 2] || "";
-  const parentLc = parent.toLowerCase();
-  if (parentLc === "rtorrent") return `rTorrent · ${base}`;
-  if (parentLc === "jdownloader") return `JDownloader · ${base}`;
-  if (parentLc === "pyload") return `pyLoad · ${base}`;
+  const family = ROOT_FAMILY[parent.toLowerCase()];
+  if (family) return `${family} · ${base}`;
   if (parent) return `${parent}/${base}`;
   return base;
 }
