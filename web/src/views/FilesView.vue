@@ -1,9 +1,10 @@
 <script setup lang="ts">
-import { computed, onMounted, ref, watch } from "vue";
+import { computed, onMounted, onUnmounted, ref, watch } from "vue";
 import { useRoute, useRouter } from "vue-router";
 import {
   createShare,
   deleteShare,
+  fetchCapabilities,
   fetchFSList,
   fetchFSRoots,
   fetchFSText,
@@ -13,6 +14,7 @@ import {
   fsMove,
   fsRemove,
   withBase,
+  type CapabilitiesResponse,
   type FSEntry,
   type ShareLink,
 } from "@/api/client";
@@ -47,6 +49,16 @@ const checked = ref<Record<string, boolean>>({});
 const shareOpen = ref(false);
 const shareTtlSec = ref(86400);
 const shareMaxDownloads = ref(0);
+const engine = ref<CapabilitiesResponse | null>(null);
+let engineTimer: ReturnType<typeof setInterval> | undefined;
+
+async function refreshEngine() {
+  try {
+    engine.value = await fetchCapabilities();
+  } catch {
+    // keep last known footer state
+  }
+}
 
 const queueProviders = computed(() => {
   const activeIds = new Set(active.value.map((e) => e.id));
@@ -280,6 +292,8 @@ function onQueueNotice(msg: string, kind: "ok" | "error") {
 onMounted(async () => {
   try {
     await refreshExtensions(true);
+    await refreshEngine();
+    engineTimer = setInterval(() => void refreshEngine(), 10000);
     await loadRoots();
     const initial = typeof route.query.path === "string" ? route.query.path : "";
     await loadDir(initial);
@@ -287,6 +301,10 @@ onMounted(async () => {
   } catch (e) {
     error.value = e instanceof Error ? e.message : String(e);
   }
+});
+
+onUnmounted(() => {
+  if (engineTimer) clearInterval(engineTimer);
 });
 
 watch(
@@ -301,7 +319,12 @@ watch(
 </script>
 
 <template>
-  <AppShell :torrent-count="0">
+  <AppShell
+    :torrent-count="0"
+    :clients-connected="engine?.clientsConnected ?? 0"
+    :clients-total="engine?.clientsTotal ?? 0"
+    :client-problems="engine?.problems ?? []"
+  >
     <template #sidebar>
       <div class="fleet-files-side">
         <p class="fleet-files-label">
