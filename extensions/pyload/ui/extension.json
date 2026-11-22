@@ -1,0 +1,56 @@
+{
+  "schema": 1,
+  "extensionId": "org.fleet.pyload",
+  "pages": [
+    {
+      "id": "pyload",
+      "title": "pyLoad",
+      "route": "/ext/org.fleet.pyload/pyload"
+    }
+  ],
+  "actions": [
+    {
+      "id": "test-connection",
+      "label": "Test connection",
+      "target": "global"
+    },
+    {
+      "id": "refresh-queue",
+      "label": "Refresh queue",
+      "target": "global"
+    }
+  ],
+  "panels": [
+    {
+      "id": "pyload",
+      "title": "pyLoad",
+      "placement": "settings"
+    }
+  ],
+  "forms": [
+    {
+      "id": "pyload-settings",
+      "title": "pyLoad connection",
+      "fields": [
+        {
+          "name": "baseUrl",
+          "label": "Base URL",
+          "kind": "text",
+          "placeholder": "http://127.0.0.1:8000",
+          "help": "Loopback or private LAN only."
+        },
+        {
+          "name": "username",
+          "label": "Username",
+          "kind": "text"
+        },
+        {
+          "name": "password",
+          "label": "Password",
+          "kind": "text",
+          "help": "Stored in extension storage; never shown in logs. First-party Configure UI uses a password input."
+        }
+      ]
+    }
+  ]
+}
