@@ -1,0 +1,57 @@
+{
+  "schema": 1,
+  "extensionId": "org.fleet.jdownloader",
+  "pages": [
+    {
+      "id": "jdownloader",
+      "title": "JDownloader",
+      "route": "/ext/org.fleet.jdownloader/jdownloader"
+    }
+  ],
+  "actions": [
+    {
+      "id": "test-connection",
+      "label": "Test connection",
+      "target": "global"
+    },
+    {
+      "id": "refresh-queue",
+      "label": "Refresh queue",
+      "target": "global"
+    }
+  ],
+  "panels": [
+    {
+      "id": "jdownloader",
+      "title": "JDownloader",
+      "placement": "settings"
+    }
+  ],
+  "forms": [
+    {
+      "id": "jdownloader-settings",
+      "title": "MyJDownloader connection",
+      "fields": [
+        {
+          "name": "email",
+          "label": "MyJD email",
+          "kind": "text",
+          "placeholder": "you@example.com"
+        },
+        {
+          "name": "password",
+          "label": "MyJD password",
+          "kind": "text",
+          "help": "Stored in extension storage; never shown in logs. First-party Configure UI uses a password input."
+        },
+        {
+          "name": "deviceName",
+          "label": "Device name",
+          "kind": "text",
+          "placeholder": "JDownloader@host",
+          "help": "Exact MyJDownloader device name. Leave empty to use the first device."
+        }
+      ]
+    }
+  ]
+}
