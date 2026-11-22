@@ -1,7 +1,7 @@
 schema: 1
 id: org.fleet.jdownloader
 name: JDownloader
-description: Monitor and control a MyJDownloader download queue from Fleet.
+description: Monitor and control a local or MyJDownloader download queue from Fleet.
 version: 0.1.0
 api: ">=1.0.0 <2.0.0"
 engines:

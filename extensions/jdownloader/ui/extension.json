@@ -30,26 +30,46 @@
   "forms": [
     {
       "id": "jdownloader-settings",
-      "title": "MyJDownloader connection",
+      "title": "JDownloader connection",
       "fields": [
+        {
+          "name": "connectionMode",
+          "label": "Connection mode",
+          "kind": "select",
+          "options": [
+            { "value": "local", "label": "Local Remote API" },
+            { "value": "myjd", "label": "MyJDownloader" }
+          ],
+          "help": "Default is local (loopback/private). MyJD uses api.jdownloader.org."
+        },
+        {
+          "name": "baseUrl",
+          "label": "Local base URL",
+          "kind": "text",
+          "placeholder": "http://127.0.0.1:3128",
+          "help": "Used when mode is local. Loopback or private LAN only."
+        },
         {
           "name": "email",
           "label": "MyJD email",
           "kind": "text",
-          "placeholder": "you@example.com"
+          "placeholder": "you@example.com",
+          "advanced": true
         },
         {
           "name": "password",
-          "label": "MyJD password",
+          "label": "Password",
           "kind": "text",
-          "help": "Stored in extension storage; never shown in logs. First-party Configure UI uses a password input."
+          "help": "Stored in extension storage; never shown in logs. First-party Configure UI uses a password input.",
+          "advanced": true
         },
         {
           "name": "deviceName",
-          "label": "Device name",
+          "label": "MyJD device name",
           "kind": "text",
           "placeholder": "JDownloader@host",
-          "help": "Exact MyJDownloader device name. Leave empty to use the first device."
+          "help": "Exact MyJDownloader device name. Leave empty to use the first device.",
+          "advanced": true
         }
       ]
     }

@@ -1,4 +1,4 @@
-// Command jdownloader-worker connects to MyJDownloader for queue status and controls.
+// Command jdownloader-worker connects to local JD2 Remote API or MyJDownloader for queue status and controls.
 package main
 
 import (
@@ -19,10 +19,12 @@ type request struct {
 }
 
 type settings struct {
-	Enabled    bool   `json:"enabled"`
-	Email      string `json:"email"`
-	Password   string `json:"password"`
-	DeviceName string `json:"deviceName"`
+	Enabled        bool   `json:"enabled"`
+	ConnectionMode string `json:"connectionMode"` // local | myjd
+	BaseURL        string `json:"baseUrl"`
+	Email          string `json:"email"`
+	Password       string `json:"password"`
+	DeviceName     string `json:"deviceName"`
 }
 
 type hostReply struct {
@@ -36,8 +38,10 @@ var (
 	pending  = map[int64]chan hostReply{}
 	outMu    sync.Mutex
 
-	clientMu sync.Mutex
-	jdClient *myjdClient
+	clientMu  sync.Mutex
+	jdClient  *myjdClient
+	localCli  *localJDClient
+	localURL  string
 )
 
 func main() {
@@ -120,8 +124,11 @@ func handleRequest(req request) {
 		if extra.ClearPassword {
 			p.Password = ""
 		}
-		p.Email = strings.TrimSpace(p.Email)
-		p.DeviceName = strings.TrimSpace(p.DeviceName)
+		normalizeSettings(&p)
+		if err := validateSettings(p); err != nil {
+			replyErr(req.ID, err.Error())
+			return
+		}
 		if err := saveSettings(&p); err != nil {
 			replyErr(req.ID, err.Error())
 			return
@@ -164,12 +171,45 @@ func handleRequest(req request) {
 }
 
 func defaultSettings() settings {
-	return settings{Enabled: false}
+	return settings{
+		Enabled:        false,
+		ConnectionMode: "local",
+		BaseURL:        "http://127.0.0.1:3128",
+	}
+}
+
+func normalizeSettings(st *settings) {
+	st.ConnectionMode = strings.ToLower(strings.TrimSpace(st.ConnectionMode))
+	if st.ConnectionMode == "" {
+		st.ConnectionMode = "local"
+	}
+	st.BaseURL = strings.TrimSpace(st.BaseURL)
+	st.Email = strings.TrimSpace(st.Email)
+	st.DeviceName = strings.TrimSpace(st.DeviceName)
+	if st.BaseURL == "" {
+		st.BaseURL = defaultSettings().BaseURL
+	}
+}
+
+func validateSettings(st settings) error {
+	switch st.ConnectionMode {
+	case "local":
+		if _, err := validatePrivateBaseURL(st.BaseURL); err != nil {
+			return err
+		}
+	case "myjd":
+		// Credentials checked at connect time; allow empty while drafting.
+	default:
+		return fmt.Errorf("connectionMode must be local or myjd")
+	}
+	return nil
 }
 
 func publicSettings(st settings) map[string]any {
 	return map[string]any{
 		"enabled":            st.Enabled,
+		"connectionMode":     st.ConnectionMode,
+		"baseUrl":            st.BaseURL,
 		"email":              st.Email,
 		"deviceName":         st.DeviceName,
 		"passwordConfigured": strings.TrimSpace(st.Password) != "",
@@ -188,6 +228,7 @@ func loadSettings() (settings, error) {
 	if err := json.Unmarshal(raw, &st); err != nil {
 		return defaultSettings(), nil
 	}
+	normalizeSettings(&st)
 	return st, nil
 }
 
@@ -199,10 +240,12 @@ func saveSettings(st *settings) error {
 func invalidateClient() {
 	clientMu.Lock()
 	jdClient = nil
+	localCli = nil
+	localURL = ""
 	clientMu.Unlock()
 }
 
-func getClient(st settings) (*myjdClient, error) {
+func getMyJD(st settings) (*myjdClient, error) {
 	if strings.TrimSpace(st.Email) == "" || strings.TrimSpace(st.Password) == "" {
 		return nil, fmt.Errorf("configure MyJD email and password")
 	}
@@ -214,12 +257,61 @@ func getClient(st settings) (*myjdClient, error) {
 	return jdClient, nil
 }
 
+func getLocal(st settings) (*localJDClient, error) {
+	if strings.TrimSpace(st.BaseURL) == "" {
+		return nil, fmt.Errorf("configure local JDownloader base URL")
+	}
+	clientMu.Lock()
+	defer clientMu.Unlock()
+	want := strings.TrimRight(st.BaseURL, "/")
+	if localCli == nil || localURL != want {
+		cli, err := newLocalJD(st.BaseURL)
+		if err != nil {
+			return nil, err
+		}
+		localCli = cli
+		localURL = want
+	}
+	return localCli, nil
+}
+
+func packageQuery() map[string]any {
+	return map[string]any{
+		"bytesLoaded": true,
+		"bytesTotal":  true,
+		"comment":     true,
+		"enabled":     true,
+		"eta":         true,
+		"finished":    true,
+		"maxResults":  -1,
+		"running":     true,
+		"saveTo":      true,
+		"speed":       true,
+		"startAt":     0,
+		"status":      true,
+	}
+}
+
 func testConnection() (map[string]any, error) {
 	st, err := loadSettings()
 	if err != nil {
 		return nil, err
 	}
-	cli, err := getClient(st)
+	if st.ConnectionMode == "local" {
+		cli, err := getLocal(st)
+		if err != nil {
+			return nil, err
+		}
+		if err := cli.ping(); err != nil {
+			return nil, err
+		}
+		// Also probe downloads API.
+		if _, err := cli.action("/downloadsV2/queryPackages", []any{packageQuery()}); err != nil {
+			return nil, err
+		}
+		return map[string]any{"ok": true, "mode": "local"}, nil
+	}
+	cli, err := getMyJD(st)
 	if err != nil {
 		return nil, err
 	}
@@ -238,6 +330,7 @@ func testConnection() (map[string]any, error) {
 	cli.mu.Unlock()
 	return map[string]any{
 		"ok":       true,
+		"mode":     "myjd",
 		"deviceId": deviceID,
 		"devices":  names,
 	}, nil
@@ -248,50 +341,43 @@ func listQueue() (map[string]any, error) {
 	if err != nil {
 		return nil, err
 	}
-	cli, err := getClient(st)
-	if err != nil {
-		return nil, err
-	}
-	deviceID, err := cli.resolveDeviceID(st.DeviceName)
-	if err != nil {
-		return nil, err
-	}
-	query := map[string]any{
-		"bytesLoaded": true,
-		"bytesTotal":  true,
-		"comment":     true,
-		"enabled":     true,
-		"eta":         true,
-		"finished":    true,
-		"maxResults":  -1,
-		"running":     true,
-		"saveTo":      true,
-		"speed":       true,
-		"startAt":     0,
-		"status":      true,
-	}
-	raw, err := cli.deviceAction(deviceID, "/downloadsV2/queryPackages", []any{query})
-	if err != nil {
-		return nil, err
+	query := packageQuery()
+	var raw json.RawMessage
+	source := st.ConnectionMode
+	if st.ConnectionMode == "local" {
+		cli, err := getLocal(st)
+		if err != nil {
+			return nil, err
+		}
+		raw, err = cli.action("/downloadsV2/queryPackages", []any{query})
+		if err != nil {
+			return nil, err
+		}
+	} else {
+		cli, err := getMyJD(st)
+		if err != nil {
+			return nil, err
+		}
+		deviceID, err := cli.resolveDeviceID(st.DeviceName)
+		if err != nil {
+			return nil, err
+		}
+		raw, err = cli.deviceAction(deviceID, "/downloadsV2/queryPackages", []any{query})
+		if err != nil {
+			return nil, err
+		}
+		source = "myjd"
 	}
 	items, err := normalizeMyJDPackages(raw)
 	if err != nil {
 		return nil, err
 	}
-	return map[string]any{"items": items, "source": "myjd", "at": time.Now().UTC().Format(time.RFC3339)}, nil
+	return map[string]any{"items": items, "source": source, "at": time.Now().UTC().Format(time.RFC3339)}, nil
 }
 
 func control(action string, id any, ids any) (map[string]any, error) {
 	action = strings.ToLower(strings.TrimSpace(action))
 	st, err := loadSettings()
-	if err != nil {
-		return nil, err
-	}
-	cli, err := getClient(st)
-	if err != nil {
-		return nil, err
-	}
-	deviceID, err := cli.resolveDeviceID(st.DeviceName)
 	if err != nil {
 		return nil, err
 	}
@@ -301,38 +387,62 @@ func control(action string, id any, ids any) (map[string]any, error) {
 	}
 	emptyLinks := []any{}
 
+	do := func(path string, params []any) error {
+		if st.ConnectionMode == "local" {
+			cli, err := getLocal(st)
+			if err != nil {
+				return err
+			}
+			_, err = cli.action(path, params)
+			return err
+		}
+		cli, err := getMyJD(st)
+		if err != nil {
+			return err
+		}
+		deviceID, err := cli.resolveDeviceID(st.DeviceName)
+		if err != nil {
+			return err
+		}
+		_, err = cli.deviceAction(deviceID, path, params)
+		return err
+	}
+
 	switch action {
 	case "pause", "stop":
-		_, err = cli.deviceAction(deviceID, "/downloadcontroller/pause", []any{true})
-		if err != nil {
+		if err := do("/downloadcontroller/pause", []any{true}); err != nil {
 			return nil, err
 		}
 		if len(pkgIDs) > 0 {
-			_, err = cli.deviceAction(deviceID, "/downloadsV2/setEnabled", []any{false, emptyLinks, pkgIDs})
-		}
-	case "resume", "start", "unpause":
-		if len(pkgIDs) > 0 {
-			_, err = cli.deviceAction(deviceID, "/downloadsV2/setEnabled", []any{true, emptyLinks, pkgIDs})
-			if err != nil {
+			if err := do("/downloadsV2/setEnabled", []any{false, emptyLinks, pkgIDs}); err != nil {
 				return nil, err
 			}
 		}
-		_, err = cli.deviceAction(deviceID, "/downloadcontroller/start", nil)
+	case "resume", "start", "unpause":
+		if len(pkgIDs) > 0 {
+			if err := do("/downloadsV2/setEnabled", []any{true, emptyLinks, pkgIDs}); err != nil {
+				return nil, err
+			}
+		}
+		if err := do("/downloadcontroller/start", nil); err != nil {
+			return nil, err
+		}
 	case "remove", "delete":
 		if len(pkgIDs) == 0 {
 			return nil, fmt.Errorf("id required for remove")
 		}
-		_, err = cli.deviceAction(deviceID, "/downloadsV2/removeLinks", []any{emptyLinks, pkgIDs})
+		if err := do("/downloadsV2/removeLinks", []any{emptyLinks, pkgIDs}); err != nil {
+			return nil, err
+		}
 	case "force":
 		if len(pkgIDs) == 0 {
 			return nil, fmt.Errorf("id required for force")
 		}
-		_, err = cli.deviceAction(deviceID, "/downloadsV2/forceDownload", []any{emptyLinks, pkgIDs})
+		if err := do("/downloadsV2/forceDownload", []any{emptyLinks, pkgIDs}); err != nil {
+			return nil, err
+		}
 	default:
 		return nil, fmt.Errorf("unknown action %q (pause|resume|stop|remove|force)", action)
-	}
-	if err != nil {
-		return nil, err
 	}
 	return map[string]any{"ok": true, "action": action}, nil
 }
