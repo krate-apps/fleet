@@ -56,10 +56,11 @@ func (c *localJDClient) ping() error {
 func (c *localJDClient) action(path string, params []any) (json.RawMessage, error) {
 	c.mu.Lock()
 	defer c.mu.Unlock()
+	// Local deprecated Remote API wants raw JSON params (MyJD adaptParams stringifies maps).
 	payload := map[string]any{
 		"apiVer": 1,
 		"url":    path,
-		"params": adaptParams(params),
+		"params": params,
 		"rid":    c.nextRID(),
 	}
 	body, err := json.Marshal(payload)
