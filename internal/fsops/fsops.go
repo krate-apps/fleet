@@ -5,6 +5,7 @@ import (
 	"crypto/sha256"
 	"encoding/base64"
 	"encoding/hex"
+	"errors"
 	"fmt"
 	"io"
 	"os"
@@ -224,6 +225,7 @@ func (m *Manager) Mkdir(path string) error {
 }
 
 // Rename renames within roots (same as move when target is new name).
+// Falls back to copy+remove when rename fails across filesystems (EXDEV).
 func (m *Manager) Rename(from, to string) error {
 	src, st, err := m.Resolve(from, true)
 	if err != nil {
@@ -234,7 +236,19 @@ func (m *Manager) Rename(from, to string) error {
 	if err != nil {
 		return err
 	}
-	return os.Rename(src, dst)
+	if err := os.Rename(src, dst); err == nil {
+		return nil
+	} else if !isCrossDevice(err) {
+		return err
+	}
+	if err := m.Copy(from, to); err != nil {
+		return err
+	}
+	return m.Remove(from, true)
+}
+
+func isCrossDevice(err error) bool {
+	return errors.Is(err, syscall.EXDEV)
 }
 
 // Remove deletes a file or empty directory (recursive optional).
@@ -258,21 +272,30 @@ func (m *Manager) Remove(path string, recursive bool) error {
 	return os.Remove(abs)
 }
 
-// Copy copies a regular file within roots.
+// Copy copies a regular file or directory tree within roots.
+// Directory trees skip HideDot entries and refuse symlinks; total payload capped at maxCopyBytes.
 func (m *Manager) Copy(from, to string) error {
 	src, st, err := m.Resolve(from, true)
 	if err != nil {
 		return err
 	}
-	if st.IsDir() {
-		return fmt.Errorf("directory copy not supported")
-	}
-	if st.Size() > maxCopyBytes {
-		return fmt.Errorf("file too large to copy")
-	}
 	dst, _, err := m.Resolve(to, false)
 	if err != nil {
 		return err
+	}
+	var written int64
+	if st.IsDir() {
+		return m.copyDir(src, dst, &written)
+	}
+	return m.copyFile(src, dst, st.Size(), &written)
+}
+
+func (m *Manager) copyFile(src, dst string, size int64, written *int64) error {
+	if size < 0 {
+		size = 0
+	}
+	if *written+size > maxCopyBytes {
+		return fmt.Errorf("copy exceeds size limit (%d bytes)", maxCopyBytes)
 	}
 	in, err := os.Open(src)
 	if err != nil {
@@ -284,9 +307,66 @@ func (m *Manager) Copy(from, to string) error {
 		return err
 	}
 	defer out.Close()
-	if _, err := io.Copy(out, io.LimitReader(in, maxCopyBytes+1)); err != nil {
+	n, err := io.Copy(out, io.LimitReader(in, maxCopyBytes+1))
+	if err != nil {
 		_ = os.Remove(dst)
 		return err
+	}
+	*written += n
+	if *written > maxCopyBytes {
+		_ = os.Remove(dst)
+		return fmt.Errorf("copy exceeds size limit (%d bytes)", maxCopyBytes)
+	}
+	return nil
+}
+
+func (m *Manager) copyDir(src, dst string, written *int64) error {
+	if err := os.Mkdir(dst, 0o755); err != nil {
+		return err
+	}
+	entries, err := os.ReadDir(src)
+	if err != nil {
+		_ = os.RemoveAll(dst)
+		return err
+	}
+	for _, e := range entries {
+		name := e.Name()
+		if m.HideDot && strings.HasPrefix(name, ".") {
+			continue
+		}
+		childFrom := filepath.Join(src, name)
+		childTo := filepath.Join(dst, name)
+		info, err := e.Info()
+		if err != nil {
+			_ = os.RemoveAll(dst)
+			return err
+		}
+		if info.Mode()&os.ModeSymlink != 0 {
+			_ = os.RemoveAll(dst)
+			return fmt.Errorf("refusing to copy symlink %q", childFrom)
+		}
+		// Re-resolve every child so copy stays under download_roots.
+		resolvedFrom, st, err := m.Resolve(childFrom, true)
+		if err != nil {
+			_ = os.RemoveAll(dst)
+			return err
+		}
+		resolvedTo, _, err := m.Resolve(childTo, false)
+		if err != nil {
+			_ = os.RemoveAll(dst)
+			return err
+		}
+		if st.IsDir() {
+			if err := m.copyDir(resolvedFrom, resolvedTo, written); err != nil {
+				_ = os.RemoveAll(dst)
+				return err
+			}
+			continue
+		}
+		if err := m.copyFile(resolvedFrom, resolvedTo, st.Size(), written); err != nil {
+			_ = os.RemoveAll(dst)
+			return err
+		}
 	}
 	return nil
 }

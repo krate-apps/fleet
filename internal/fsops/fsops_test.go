@@ -70,6 +70,51 @@ func TestStatFingerprintHardlink(t *testing.T) {
 	}
 }
 
+func TestCopyFileAndDirectory(t *testing.T) {
+	root := t.TempDir()
+	m := &Manager{AllowedRoots: []string{root}, HideDot: true}
+	srcDir := filepath.Join(root, "src")
+	if err := os.Mkdir(srcDir, 0o755); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(srcDir, "a.txt"), []byte("aa"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.Mkdir(filepath.Join(srcDir, "sub"), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(srcDir, "sub", "b.txt"), []byte("bbb"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	// Hidden entries are skipped when HideDot is on.
+	if err := os.WriteFile(filepath.Join(srcDir, ".secret"), []byte("nope"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	dstDir := filepath.Join(root, "dst")
+	if err := m.Copy(srcDir, dstDir); err != nil {
+		t.Fatal(err)
+	}
+	raw, err := os.ReadFile(filepath.Join(dstDir, "a.txt"))
+	if err != nil || string(raw) != "aa" {
+		t.Fatalf("a.txt: %v %q", err, raw)
+	}
+	raw, err = os.ReadFile(filepath.Join(dstDir, "sub", "b.txt"))
+	if err != nil || string(raw) != "bbb" {
+		t.Fatalf("b.txt: %v %q", err, raw)
+	}
+	if _, err := os.Stat(filepath.Join(dstDir, ".secret")); !os.IsNotExist(err) {
+		t.Fatalf("expected .secret skipped, err=%v", err)
+	}
+	fileDst := filepath.Join(root, "copy-a.txt")
+	if err := m.Copy(filepath.Join(srcDir, "a.txt"), fileDst); err != nil {
+		t.Fatal(err)
+	}
+	raw, err = os.ReadFile(fileDst)
+	if err != nil || string(raw) != "aa" {
+		t.Fatalf("file copy: %v %q", err, raw)
+	}
+}
+
 func TestRefuseOutsideAndSymlink(t *testing.T) {
 	root := t.TempDir()
 	outside := t.TempDir()
