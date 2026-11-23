@@ -4,6 +4,7 @@ import { useRoute, useRouter } from "vue-router";
 import {
   createShare,
   deleteShare,
+  extensionRPC,
   fetchCapabilities,
   fetchFSList,
   fetchFSRoots,
@@ -20,14 +21,37 @@ import {
 } from "@/api/client";
 import AppShell from "@/components/AppShell.vue";
 import DownloadQueuePanel from "@/components/DownloadQueuePanel.vue";
+import Modal from "@/components/Modal.vue";
+import PathPicker from "@/components/PathPicker.vue";
 import ToolbarIcon from "@/components/ToolbarIcon.vue";
 import { useExtensionUI } from "@/composables/useExtensionUI";
 import {
+  APP_ID_TO_QUEUE_EXT,
   DOWNLOAD_QUEUE_PROVIDERS,
   FILES_TAB_FOLDERS,
   type DownloadQueueProvider,
 } from "@/extensions/downloadQueues";
 import { useI18n } from "@/i18n/useI18n";
+import {
+  FILEMANAGER_EXT_ID,
+  RCLONE_EXT_ID,
+  groupRootsByApp,
+  isMountRootPath,
+  mountLabel,
+  pathParts,
+  preferDownloadsRoot,
+  rootAppId,
+  rootLabel,
+  type RootGroup,
+} from "@/lib/downloadRoots";
+
+type RcloneDrive = {
+  id: string;
+  name: string;
+  remote: string;
+  path?: string;
+  browsable?: boolean;
+};
 
 const route = useRoute();
 const router = useRouter();
@@ -52,7 +76,16 @@ const shareTtlSec = ref(86400);
 const shareMaxDownloads = ref(0);
 const engine = ref<CapabilitiesResponse | null>(null);
 const selectedAppId = ref("");
+const destPickerOpen = ref(false);
+const destPickerOp = ref<"move" | "copy">("move");
+const destPath = ref("");
+const rcloneDrives = ref<RcloneDrive[]>([]);
 let engineTimer: ReturnType<typeof setInterval> | undefined;
+
+const filemanagerActive = computed(() =>
+  active.value.some((e) => e.id === FILEMANAGER_EXT_ID),
+);
+const rcloneActive = computed(() => active.value.some((e) => e.id === RCLONE_EXT_ID));
 
 async function refreshEngine() {
   try {
@@ -118,76 +151,75 @@ function isVideoName(name: string) {
   return /\.(mp4|webm|mkv|avi)$/i.test(name);
 }
 
-/** Krate medias/<client>/… → display family (avoids duplicate "Downloads" basenames). */
-const ROOT_FAMILY: Record<string, string> = {
-  rtorrent: "rTorrent",
-  deluge: "Deluge",
-  qbittorrent: "qBittorrent",
-  transmission: "Transmission",
-  jdownloader: "JDownloader",
-  pyload: "pyLoad",
-  nzbget: "NZBGet",
-  sabnzbd: "SABnzbd",
-};
-
-type FilesApp = {
-  id: string;
-  label: string;
-  roots: string[];
-};
-
-function pathParts(path: string): string[] {
-  return path.replace(/\\/g, "/").replace(/\/+$/, "").split("/").filter(Boolean);
+function isMediaInfoName(name: string) {
+  return /\.(mp4|webm|mkv|avi|m4v|mov|wmv|flv|ts|m2ts|mp3|flac|aac|ogg|wav|m4a)$/i.test(name);
 }
 
-function rootAppId(path: string): string {
-  const parts = pathParts(path);
-  const parent = (parts[parts.length - 2] || "").toLowerCase();
-  if (ROOT_FAMILY[parent]) return parent;
-  return parts[parts.length - 2] || parts[parts.length - 1] || path;
-}
+type FilesApp = RootGroup;
 
 function rootFolderName(path: string): string {
   const parts = pathParts(path);
   return parts[parts.length - 1] || path;
 }
 
-/** Distinct label for a download_roots path. */
-function rootLabel(path: string): string {
-  const parts = pathParts(path);
-  const base = parts[parts.length - 1] || path;
-  const parent = parts[parts.length - 2] || "";
-  const family = ROOT_FAMILY[parent.toLowerCase()];
-  if (family) return `${family} · ${base}`;
-  if (parent) return `${parent}/${base}`;
-  return base;
-}
+/** download_roots that belong to client apps (not …/mounts/…). */
+const appRootsAll = computed(() => roots.value.filter((r) => !isMountRootPath(r)));
 
-const apps = computed((): FilesApp[] => {
-  const byId = new Map<string, FilesApp>();
-  for (const r of roots.value) {
-    const id = rootAppId(r);
-    const label = ROOT_FAMILY[id] || id;
-    const cur = byId.get(id);
-    if (cur) cur.roots.push(r);
-    else byId.set(id, { id, label, roots: [r] });
-  }
-  return [...byId.values()].sort((a, b) => a.label.localeCompare(b.label));
-});
+const apps = computed((): FilesApp[] => groupRootsByApp(appRootsAll.value));
 
 const selectedApp = computed(() => apps.value.find((a) => a.id === selectedAppId.value) ?? null);
 
 const selectedAppRoots = computed(() => selectedApp.value?.roots ?? []);
 
-function preferRoot(appRoots: string[]): string {
-  const downloads = appRoots.find((r) => /\/downloads$/i.test(r) || /\/Downloads$/.test(r));
-  return downloads || appRoots[0] || "";
+/** Local mount paths already listed in download_roots. */
+const mountRootsFromFS = computed(() => roots.value.filter(isMountRootPath));
+
+/** Sidebar Mounts: rclone drives + FS mount roots (deduped by path). */
+const mountEntries = computed(() => {
+  const out: Array<{ id: string; label: string; path: string; browsable: boolean; title: string }> = [];
+  const seen = new Set<string>();
+  for (const r of mountRootsFromFS.value) {
+    const p = r.replace(/\/+$/, "");
+    seen.add(p);
+    out.push({
+      id: `fs:${p}`,
+      label: mountLabel(r),
+      path: r,
+      browsable: true,
+      title: r,
+    });
+  }
+  for (const d of rcloneDrives.value) {
+    const path = (d.path || "").replace(/\/+$/, "");
+    if (path && seen.has(path)) continue;
+    if (path) seen.add(path);
+    out.push({
+      id: `rclone:${d.id}`,
+      label: d.name,
+      path: d.path || "",
+      browsable: !!d.browsable && !!d.path,
+      title: d.path || d.remote,
+    });
+  }
+  return out.sort((a, b) => a.label.localeCompare(b.label));
+});
+
+function queueProviderForApp(appId: string): DownloadQueueProvider | null {
+  const extId = APP_ID_TO_QUEUE_EXT[appId];
+  if (!extId) return null;
+  return queueProviders.value.find((p) => p.extensionId === extId) ?? null;
 }
 
 function selectApp(app: FilesApp) {
   selectedAppId.value = app.id;
+  const qp = queueProviderForApp(app.id);
+  if (qp) {
+    // Hosters: open live queue from the sidebar (no Folders/JD/pyLoad tab strip).
+    setTab(qp.extensionId);
+    return;
+  }
   setTab(FILES_TAB_FOLDERS);
-  const target = preferRoot(app.roots);
+  const target = preferDownloadsRoot(app.roots);
   if (target) void loadDir(target);
 }
 
@@ -200,6 +232,30 @@ function entryDisplayName(e: FSEntry): string {
   return e.name;
 }
 
+async function loadRcloneDrives() {
+  if (!rcloneActive.value) {
+    rcloneDrives.value = [];
+    return;
+  }
+  try {
+    const res = await extensionRPC(RCLONE_EXT_ID, "ext.rclone.listDrives", {});
+    const drives = (res.result as { drives?: RcloneDrive[] } | undefined)?.drives;
+    rcloneDrives.value = Array.isArray(drives) ? drives : [];
+  } catch {
+    rcloneDrives.value = [];
+  }
+}
+
+function openMount(entry: { path: string; browsable: boolean }) {
+  if (!entry.browsable || !entry.path) {
+    notice.value = t("files.mountUnavailable");
+    noticeKind.value = "error";
+    return;
+  }
+  setTab(FILES_TAB_FOLDERS);
+  void loadDir(entry.path);
+}
+
 async function loadRoots() {
   const data = await fetchFSRoots();
   roots.value = data.roots ?? [];
@@ -208,6 +264,7 @@ async function loadRoots() {
   } else if (selectedAppId.value && !apps.value.some((a) => a.id === selectedAppId.value)) {
     selectedAppId.value = apps.value[0]?.id ?? "";
   }
+  await loadRcloneDrives();
 }
 
 async function loadDir(path = "") {
@@ -256,22 +313,48 @@ function joinDest(destDir: string, name: string) {
   return `${base}/${name}`;
 }
 
-async function bulkOp(op: "move" | "copy" | "remove") {
+function openDestPicker(op: "move" | "copy") {
   const items = checkedEntries.value;
   if (!items.length) {
-    notice.value = "Select one or more items first.";
+    notice.value = t("files.selectFirst");
     noticeKind.value = "error";
     return;
   }
-  if (op === "remove") {
-    const ok = window.confirm(`Delete ${items.length} item(s)? This cannot be undone.`);
-    if (!ok) return;
+  destPickerOp.value = op;
+  destPath.value = cwd.value || preferDownloadsRoot(selectedAppRoots.value) || roots.value[0] || "";
+  destPickerOpen.value = true;
+}
+
+async function confirmDestPicker() {
+  const destDir = destPath.value.trim();
+  if (!destDir) {
+    notice.value = t("files.pickDestination");
+    noticeKind.value = "error";
+    return;
   }
-  let destDir = "";
+  destPickerOpen.value = false;
+  await runBulkOp(destPickerOp.value, destDir);
+}
+
+async function bulkOp(op: "move" | "copy" | "remove") {
   if (op === "move" || op === "copy") {
-    destDir = String(window.prompt(`Destination directory for ${op} (${items.length} item(s))`, cwd.value) || "").trim();
-    if (!destDir) return;
+    openDestPicker(op);
+    return;
   }
+  const items = checkedEntries.value;
+  if (!items.length) {
+    notice.value = t("files.selectFirst");
+    noticeKind.value = "error";
+    return;
+  }
+  const ok = window.confirm(t("files.deleteConfirm", { n: items.length }));
+  if (!ok) return;
+  await runBulkOp("remove", "");
+}
+
+async function runBulkOp(op: "move" | "copy" | "remove", destDir: string) {
+  const items = checkedEntries.value;
+  if (!items.length) return;
   busy.value = true;
   notice.value = "";
   let done = 0;
@@ -304,6 +387,7 @@ async function bulkOp(op: "move" | "copy" | "remove") {
     noticeKind.value = "ok";
   }
   busy.value = false;
+  checked.value = {};
   await loadDir(cwd.value || "");
 }
 
@@ -341,6 +425,31 @@ function openShareForm() {
   shareOpen.value = true;
   shareTtlSec.value = 86400;
   shareMaxDownloads.value = 0;
+}
+
+async function runMediaInfo() {
+  if (!selected.value || selected.value.isDir) return;
+  busy.value = true;
+  notice.value = "";
+  try {
+    const res = await extensionRPC(FILEMANAGER_EXT_ID, "ext.filemanager.mediainfo", {
+      path: selected.value.path,
+    });
+    const text = (res.result as { text?: string } | undefined)?.text;
+    if (!text) {
+      throw new Error(t("files.mediainfoEmpty"));
+    }
+    previewEncoding.value = "";
+    previewText.value = text;
+    previewKind.value = "text";
+    notice.value = t("files.mediainfoOk");
+    noticeKind.value = "ok";
+  } catch (e) {
+    notice.value = e instanceof Error ? e.message : String(e);
+    noticeKind.value = "error";
+  } finally {
+    busy.value = false;
+  }
 }
 
 async function shareSelected() {
@@ -383,6 +492,12 @@ function onQueueNotice(msg: string, kind: "ok" | "error") {
 onMounted(async () => {
   try {
     await refreshExtensions(true);
+    if (!filemanagerActive.value) {
+      notice.value = t("files.extRequired");
+      noticeKind.value = "error";
+      void router.replace({ path: "/", query: { modal: "extensions", ext: FILEMANAGER_EXT_ID } });
+      return;
+    }
     await refreshEngine();
     engineTimer = setInterval(() => void refreshEngine(), 10000);
     await loadRoots();
@@ -409,9 +524,13 @@ watch(
 );
 
 watch(cwd, (path) => {
-  if (!path) return;
-  const match = roots.value.find((r) => path === r || path.startsWith(r.replace(/\/+$/, "") + "/"));
+  if (!path || isMountRootPath(path)) return;
+  const match = appRootsAll.value.find((r) => path === r || path.startsWith(r.replace(/\/+$/, "") + "/"));
   if (match) selectedAppId.value = rootAppId(match);
+});
+
+watch(rcloneActive, () => {
+  void loadRcloneDrives();
 });
 </script>
 
@@ -444,10 +563,11 @@ watch(cwd, (path) => {
         >
           {{ t("files.noApps") }}
         </p>
+
+        <p class="fleet-files-label fleet-files-label-sub">
+          {{ t("files.folders") }}
+        </p>
         <template v-if="selectedAppRoots.length">
-          <p class="fleet-files-label fleet-files-label-sub">
-            {{ t("files.locations") }}
-          </p>
           <button
             v-for="r in selectedAppRoots"
             :key="r"
@@ -460,34 +580,34 @@ watch(cwd, (path) => {
             {{ rootFolderName(r) }}
           </button>
         </template>
+        <p
+          v-else
+          class="fleet-muted"
+        >
+          {{ t("files.noApps") }}
+        </p>
+
+        <template v-if="mountEntries.length">
+          <p class="fleet-files-label fleet-files-label-sub">
+            {{ t("files.mounts") }}
+          </p>
+          <button
+            v-for="m in mountEntries"
+            :key="m.id"
+            type="button"
+            class="fleet-files-root fleet-files-location"
+            :data-active="m.path && cwd === m.path ? 'true' : undefined"
+            :data-disabled="m.browsable ? undefined : 'true'"
+            :title="m.title"
+            @click="openMount(m)"
+          >
+            {{ m.label }}
+          </button>
+        </template>
       </div>
     </template>
 
     <div class="fleet-files">
-      <nav
-        class="fleet-files-tabs"
-        :aria-label="t('files.tabs')"
-      >
-        <button
-          type="button"
-          class="fleet-files-tab"
-          :data-active="isFoldersTab ? 'true' : undefined"
-          @click="setTab(FILES_TAB_FOLDERS)"
-        >
-          {{ t("files.tab.folders") }}
-        </button>
-        <button
-          v-for="p in queueProviders"
-          :key="p.extensionId"
-          type="button"
-          class="fleet-files-tab"
-          :data-active="activeTab === p.extensionId ? 'true' : undefined"
-          @click="setTab(p.extensionId)"
-        >
-          {{ t(p.labelKey) }}
-        </button>
-      </nav>
-
       <template v-if="isFoldersTab">
         <header class="fleet-files-toolbar">
           <button
@@ -529,6 +649,14 @@ watch(cwd, (path) => {
             @click="bulkOp('remove')"
           >
             {{ t("files.delete") }}
+          </button>
+          <button
+            type="button"
+            class="fleet-btn"
+            :disabled="busy || !selected || selected.isDir || !isMediaInfoName(selected.name)"
+            @click="runMediaInfo"
+          >
+            {{ t("files.mediainfo") }}
           </button>
           <button
             type="button"
@@ -720,6 +848,41 @@ watch(cwd, (path) => {
         </ul>
       </section>
     </div>
+
+    <Modal
+      v-if="destPickerOpen"
+      :title="destPickerOp === 'move' ? t('files.moveTo') : t('files.copyTo')"
+      wide
+      @close="destPickerOpen = false"
+    >
+      <p class="fleet-muted">
+        {{ t("files.pickDestination") }}
+      </p>
+      <PathPicker
+        v-model="destPath"
+        directories-only
+        panel-only
+        guarded
+      />
+      <div class="fleet-files-dest-actions">
+        <button
+          type="button"
+          class="fleet-btn-primary"
+          :disabled="busy || !destPath.trim()"
+          @click="confirmDestPicker"
+        >
+          {{ destPickerOp === "move" ? t("files.move") : t("files.copy") }}
+        </button>
+        <button
+          type="button"
+          class="fleet-btn"
+          :disabled="busy"
+          @click="destPickerOpen = false"
+        >
+          {{ t("files.cancel") }}
+        </button>
+      </div>
+    </Modal>
   </AppShell>
 </template>
 
@@ -731,33 +894,6 @@ watch(cwd, (path) => {
   height: 100%;
   min-height: 0;
   padding: 0.75rem 1rem;
-}
-.fleet-files-tabs {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 0.35rem;
-  border-bottom: 1px solid var(--fleet-border-soft, color-mix(in srgb, currentColor 12%, transparent));
-  padding-bottom: 0.35rem;
-}
-.fleet-files-tab {
-  appearance: none;
-  border: 0;
-  background: transparent;
-  color: inherit;
-  opacity: 0.7;
-  padding: 0.35rem 0.65rem;
-  border-radius: 0.35rem 0.35rem 0 0;
-  cursor: pointer;
-  font-size: 0.9rem;
-}
-.fleet-files-tab:hover {
-  opacity: 1;
-  background: color-mix(in srgb, currentColor 8%, transparent);
-}
-.fleet-files-tab[data-active="true"] {
-  opacity: 1;
-  background: color-mix(in srgb, var(--fleet-primary, #3b82f6) 18%, transparent);
-  font-weight: 600;
 }
 .fleet-files-toolbar {
   display: flex;
@@ -903,6 +1039,15 @@ watch(cwd, (path) => {
 .fleet-files-location {
   padding-left: 0.5rem;
   opacity: 0.9;
+}
+.fleet-files-root[data-disabled="true"] {
+  opacity: 0.45;
+}
+.fleet-files-dest-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  margin-top: 0.75rem;
 }
 .fleet-files-shares ul {
   list-style: none;

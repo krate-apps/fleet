@@ -17,14 +17,23 @@ export const router = createRouter({
     { path: "/settings", redirect: { path: "/", query: { modal: "settings" } } },
     {
       path: "/ext/:extensionId/:pageId",
-      redirect: (to) => ({
-        path: "/",
-        query: {
-          modal: "extensions",
-          ext: String(to.params.extensionId),
-          page: String(to.params.pageId),
-        },
-      }),
+      redirect: (to) => {
+        // File Manager product UI is the native /files view (gated on activation).
+        if (
+          String(to.params.extensionId) === "org.fleet.filemanager" &&
+          String(to.params.pageId) === "browse"
+        ) {
+          return { path: "/files" };
+        }
+        return {
+          path: "/",
+          query: {
+            modal: "extensions",
+            ext: String(to.params.extensionId),
+            page: String(to.params.pageId),
+          },
+        };
+      },
     },
   ],
 });

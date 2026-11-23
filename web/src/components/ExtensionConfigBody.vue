@@ -940,6 +940,27 @@ async function onFormSubmit(values: Record<string, unknown>) {
         }
         return;
       }
+      if (formId === "fm-preview") {
+        const res = await extensionRPC(extensionId.value, "ext.filemanager.preview", {
+          path: String(values.path ?? ""),
+        });
+        const url = (res.result as { dataUrl?: string })?.dataUrl;
+        if (url) frameURLs.value = [url];
+        if (url) setNotice("Preview loaded");
+        else applySaveNotice(res.result, "Preview");
+        return;
+      }
+      if (formId === "fm-mediainfo") {
+        const res = await extensionRPC(extensionId.value, "ext.filemanager.mediainfo", {
+          path: String(values.path ?? ""),
+        });
+        if (typeof (res.result as { text?: string })?.text === "string") {
+          setNotice("MediaInfo", "ok", (res.result as { text: string }).text);
+        } else {
+          applySaveNotice(res.result, "MediaInfo");
+        }
+        return;
+      }
       const res = await extensionRPC(extensionId.value, "ext.filemanager.list", {
         path: String(values.path ?? ""),
       });
@@ -947,6 +968,7 @@ async function onFormSubmit(values: Record<string, unknown>) {
       return;
     }
     if (extensionId.value === "org.fleet.filemanager-media") {
+      // Deprecated: use org.fleet.filemanager preview/mediainfo (kept for existing installs).
       const formId = String(values.__formId ?? "");
       if (formId === "fm-preview") {
         const res = await extensionRPC(extensionId.value, "ext.filemanager-media.preview", {
