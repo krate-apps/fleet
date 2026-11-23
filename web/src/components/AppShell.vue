@@ -14,12 +14,21 @@ import Modal from "@/components/Modal.vue";
 import SettingsPanel from "@/components/SettingsPanel.vue";
 import ShortcutsHelp from "@/components/ShortcutsHelp.vue";
 import ToolbarIcon from "@/components/ToolbarIcon.vue";
+import { useExtensionUI } from "@/composables/useExtensionUI";
 import { useFocusTrap } from "@/composables/useFocusTrap";
 import { useShellModals } from "@/composables/useShellModals";
+import { useTorrentSync } from "@/composables/useTorrentSync";
+import { countActiveQueueProviders } from "@/extensions/downloadQueues";
 import { useI18n } from "@/i18n/useI18n";
+import { FILEMANAGER_EXT_ID } from "@/lib/downloadRoots";
 import fleetLogo from "@/assets/fleet-logo.png";
 
 const { t } = useI18n();
+const { active: activeExtensions } = useExtensionUI();
+const { torrents: syncTorrents, engine: syncEngine } = useTorrentSync();
+const filesExtActive = computed(() =>
+  activeExtensions.value.some((e) => e.id === FILEMANAGER_EXT_ID),
+);
 
 const props = defineProps<{
   downRate?: number;
@@ -117,27 +126,33 @@ onBeforeUnmount(() => {
   if (sysTimer) clearInterval(sysTimer);
 });
 
-const downRateLabel = computed(() => formatRate(props.downRate ?? 0));
-const upRateLabel = computed(() => formatRate(props.upRate ?? 0));
-const clientsConnected = computed(() => props.clientsConnected ?? 0);
-const clientsTotal = computed(() => props.clientsTotal ?? 0);
-const downloadersConnected = computed(() => props.downloadersConnected ?? 0);
-const problems = computed(() => props.clientProblems ?? []);
+const activeExtIds = computed(() => activeExtensions.value.map((e) => e.id));
+const torrentClients = computed(
+  () => props.clientsConnected ?? syncEngine.value?.clientsConnected ?? 0,
+);
+const clientsTotal = computed(
+  () => props.clientsTotal ?? syncEngine.value?.clientsTotal ?? 0,
+);
+const hosterClients = computed(() => countActiveQueueProviders(activeExtIds.value, "hoster"));
+const nzbClients = computed(() => countActiveQueueProviders(activeExtIds.value, "nzb"));
+const clientsTotalLive = computed(
+  () => torrentClients.value + hosterClients.value + nzbClients.value,
+);
+const problems = computed(() => props.clientProblems ?? syncEngine.value?.problems ?? []);
 const clientsClass = computed(() => {
-  const any = clientsConnected.value + downloadersConnected.value;
-  if (clientsTotal.value === 0 && downloadersConnected.value === 0) return "bad";
+  if (clientsTotal.value === 0 && hosterClients.value === 0 && nzbClients.value === 0) return "bad";
   if (problems.value.length > 0) return "warn";
-  if (any > 0) return "ok";
+  if (clientsTotalLive.value > 0) return "ok";
   return "bad";
 });
-const clientsText = computed(() => {
-  const torrent = clientsConnected.value;
-  const downloaders = downloadersConnected.value;
-  if (downloaders > 0) {
-    return t("status.clientsLine", { torrent, downloaders });
-  }
-  return t("status.clientsConnected", { n: torrent });
-});
+const clientsText = computed(() => t("status.clientsConnected", { n: clientsTotalLive.value }));
+const clientsTitle = computed(() =>
+  [
+    t("status.clientsBreakdown.torrents", { n: torrentClients.value }),
+    t("status.clientsBreakdown.nzb", { n: nzbClients.value }),
+    t("status.clientsBreakdown.hosters", { n: hosterClients.value }),
+  ].join("\n"),
+);
 const problemsText = computed(() => {
   const list = problems.value;
   if (!list.length) return "";
@@ -151,6 +166,16 @@ const problemsTitle = computed(() =>
     .map((p) => `${p.name}${p.message ? `: ${p.message}` : ""}`)
     .join("\n"),
 );
+const downRateLabel = computed(() => {
+  if (props.downRate != null) return formatRate(props.downRate);
+  const sum = syncTorrents.value.reduce((acc, t) => acc + (t.downRate || 0), 0);
+  return formatRate(sum);
+});
+const upRateLabel = computed(() => {
+  if (props.upRate != null) return formatRate(props.upRate);
+  const sum = syncTorrents.value.reduce((acc, t) => acc + (t.upRate || 0), 0);
+  return formatRate(sum);
+});
 const primaryDisk = computed(() => disks.value[0] ?? null);
 const diskLabel = computed(() => {
   const d = primaryDisk.value;
@@ -194,12 +219,15 @@ const loadTitle = computed(() => {
   return parts.join(" · ");
 });
 const torrentsText = computed(() => {
-  const n = props.torrentCount ?? 0;
-  const down = props.downloadingCount;
-  const seed = props.seedingCount;
-  if (down == null || seed == null) {
-    return t("status.torrents", { n });
-  }
+  // Prefer live shared sync so Files (and other routes) show the global list size.
+  const list = syncTorrents.value;
+  const n = list.length || props.torrentCount || 0;
+  const down =
+    props.downloadingCount ??
+    list.filter((t) => !t.complete && (t.downRate > 0 || t.state === "downloading")).length;
+  const seed =
+    props.seedingCount ??
+    list.filter((t) => t.complete && t.active).length;
   return t("status.torrentsActivity", { n, down, up: seed });
 });
 
@@ -370,6 +398,7 @@ function onSearchInput(ev: Event) {
         </RouterLink>
 
         <RouterLink
+          v-if="filesExtActive"
           class="fleet-btn fleet-topbar-files"
           to="/files"
           :title="t('files.title')"
@@ -533,6 +562,7 @@ function onSearchInput(ev: Event) {
               <span>{{ t("brand.torrents") }}</span>
             </RouterLink>
             <RouterLink
+              v-if="filesExtActive"
               class="fleet-side-item"
               to="/files"
               :data-active="route.path.startsWith('/files') ? 'true' : undefined"
@@ -550,7 +580,10 @@ function onSearchInput(ev: Event) {
     </div>
 
     <footer class="fleet-statusbar">
-      <span :class="clientsClass">{{ clientsText }}</span>
+      <span
+        :class="clientsClass"
+        :title="clientsTitle"
+      >{{ clientsText }}</span>
       <span
         v-if="problemsText"
         class="bad fleet-statusbar-problems"
